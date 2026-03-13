@@ -58,6 +58,7 @@ export default function App() {
     password: "",
     role: "viewer",
   });
+  const isAdmin = authUser?.role === "admin";
   const [userMessage, setUserMessage] = useState("");
 
   useEffect(() => {
@@ -198,41 +199,51 @@ export default function App() {
   };
 
   const handleCreateUser = (e) => {
-    e.preventDefault();
-    setUserMessage("");
+  e.preventDefault();
+  setUserMessage("");
 
-    apiFetch("/api/users", {
-      method: "POST",
-      body: JSON.stringify(userForm),
+  if (!isAdmin) {
+    setUserMessage("Solo admin puede crear usuarios");
+    return;
+  }
+
+  apiFetch("/api/users", {
+    method: "POST",
+    body: JSON.stringify(userForm),
+  })
+    .then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al crear usuario");
+      return data;
     })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al crear usuario");
-        return data;
-      })
-      .then(() => {
-        setUserMessage("Usuario creado correctamente");
-        setUserForm({ username: "", password: "", role: "viewer" });
+    .then(() => {
+      setUserMessage("Usuario creado correctamente");
+      setUserForm({ username: "", password: "", role: "viewer" });
 
-        return apiFetch("/api/users")
-          .then((res) => res.json())
-          .then((data) => setUsers(data));
-      })
-      .catch((err) => setUserMessage(err.message));
-  };
+      return apiFetch("/api/users")
+        .then((res) => res.json())
+        .then((data) => setUsers(data));
+    })
+    .catch((err) => setUserMessage(err.message));
+};
 
   const handleDeleteUser = (id) => {
-    apiFetch(`/api/users/${id}`, { method: "DELETE" })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al eliminar");
-        return data;
-      })
-      .then(() => {
-        setUsers((prev) => prev.filter((u) => u.id !== id));
-      })
-      .catch((err) => setUserMessage(err.message));
-  };
+  if (!isAdmin) {
+    setUserMessage("Solo admin puede eliminar usuarios");
+    return;
+  }
+
+  apiFetch(`/api/users/${id}`, { method: "DELETE" })
+    .then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al eliminar");
+      return data;
+    })
+    .then(() => {
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+    })
+    .catch((err) => setUserMessage(err.message));
+};
 
   if (!authChecked) {
     return <div className="login-page"><div className="login-card">Cargando...</div></div>;
@@ -465,13 +476,15 @@ export default function App() {
         {activeView === "usuarios" && (
           <section className="content">
             <div className="users-page">
-              <div className="users-form-card">
+              <div
+                className={`users-form-card ${
+                  !isAdmin ? "users-form-card--disabled" : ""
+                }`}
+              >
                 <h2>Crear usuario</h2>
 
-                {authUser.role !== "admin" && (
-                  <div className="users-readonly-banner">
-                    Solo el administrador puede crear o eliminar usuarios.
-                  </div>
+                {!isAdmin && (
+                  <div className="users-disabled-banner">NO DISPONIBLE</div>
                 )}
 
                 <form className="users-form" onSubmit={handleCreateUser}>
@@ -480,10 +493,11 @@ export default function App() {
                     <input
                       type="text"
                       value={userForm.username}
-                      disabled={authUser.role !== "admin"}
+                      disabled={!isAdmin}
                       onChange={(e) =>
                         setUserForm((prev) => ({ ...prev, username: e.target.value }))
                       }
+                      placeholder="Nuevo usuario"
                     />
                   </div>
 
@@ -492,10 +506,11 @@ export default function App() {
                     <input
                       type="text"
                       value={userForm.password}
-                      disabled={authUser.role !== "admin"}
+                      disabled={!isAdmin}
                       onChange={(e) =>
                         setUserForm((prev) => ({ ...prev, password: e.target.value }))
                       }
+                      placeholder="Nueva contraseña"
                     />
                   </div>
 
@@ -504,7 +519,7 @@ export default function App() {
                     <select
                       className="users-select"
                       value={userForm.role}
-                      disabled={authUser.role !== "admin"}
+                      disabled={!isAdmin}
                       onChange={(e) =>
                         setUserForm((prev) => ({ ...prev, role: e.target.value }))
                       }
@@ -516,18 +531,22 @@ export default function App() {
 
                   {userMessage && <div className="users-message">{userMessage}</div>}
 
-                  <button
-                    className="login-btn"
-                    type="submit"
-                    disabled={authUser.role !== "admin"}
-                  >
+                  <button className="login-btn" type="submit" disabled={!isAdmin}>
                     Crear usuario
                   </button>
                 </form>
               </div>
 
-              <div className="users-list-card">
+              <div
+                className={`users-list-card ${
+                  !isAdmin ? "users-form-card--disabled" : ""
+                }`}
+              >
                 <h2>Usuarios registrados</h2>
+
+                {!isAdmin && (
+                  <div className="users-disabled-banner">NO DISPONIBLE</div>
+                )}
 
                 <div className="users-list">
                   {users.map((user) => (
@@ -542,7 +561,7 @@ export default function App() {
                       <button
                         className="user-delete-btn"
                         onClick={() => handleDeleteUser(user.id)}
-                        disabled={authUser.role !== "admin" || user.username === "admin"}
+                        disabled={!isAdmin || user.username === "admin"}
                       >
                         Eliminar
                       </button>
@@ -554,32 +573,28 @@ export default function App() {
               <div className="users-list-card users-list-card--full">
                 <h2>Log de sesiones</h2>
 
-                <div className="historico-log-table">
-                  <div className="historico-log-head">
-                    <div>Usuario</div>
-                    <div>Rol</div>
-                    <div>Resultado</div>
-                    <div>Hora / IP</div>
-                  </div>
-
-                  {loginLogs.map((log) => (
-                    <div className="historico-log-row" key={log.id}>
-                      <div className="historico-zone">{log.username}</div>
-                      <div className="historico-message">{log.role || "-"}</div>
-                      <div>
-                        <span
-                          className={`historico-badge ${
-                            log.success ? "historico-badge--baja" : "historico-badge--alta"
-                          }`}
-                        >
-                          {log.success ? "Éxito" : "Falló"}
-                        </span>
-                      </div>
-                      <div className="historico-date">
-                        {log.created_at} | {log.ip}
-                      </div>
+                <div className="alarm-log-body users-log-body">
+                  {loginLogs.filter((log) => log.success === 1).length === 0 ? (
+                    <div className="alarm-empty-state">
+                      <div className="alarm-empty-icon">🕘</div>
+                      <p>No hay sesiones registradas</p>
+                      <small>Aquí aparecerán los inicios de sesión correctos.</small>
                     </div>
-                  ))}
+                  ) : (
+                    loginLogs
+                      .filter((log) => log.success === 1)
+                      .map((log) => (
+                        <div className="alarm-item" key={log.id}>
+                          <div>
+                            <strong>{log.username}</strong>
+                            <p>
+                              {log.username} inició sesión
+                            </p>
+                          </div>
+                          <span className="historico-date">{log.created_at}</span>
+                        </div>
+                      ))
+                  )}
                 </div>
               </div>
             </div>
