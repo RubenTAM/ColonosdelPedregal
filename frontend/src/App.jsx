@@ -1,12 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const DEFAULT_USERS = [{ username: "admin", password: "TAM$123" }];
+function apiFetch(url, options = {}) {
+  const token = localStorage.getItem("auth_token");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
+
+  const [authUser, setAuthUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
 
   const [niveles, setNiveles] = useState({
     planta: 0,
@@ -34,34 +51,14 @@ export default function App() {
     cuadrada: 0,
   });
 
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem("dashboard_users");
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
-  });
-
-  const [authUser, setAuthUser] = useState(() => {
-    const saved = localStorage.getItem("dashboard_session");
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const [loginForm, setLoginForm] = useState({
+  const [users, setUsers] = useState([]);
+  const [loginLogs, setLoginLogs] = useState([]);
+  const [userForm, setUserForm] = useState({
     username: "",
     password: "",
+    role: "viewer",
   });
-
-  const [loginError, setLoginError] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem("dashboard_users", JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    if (authUser) {
-      localStorage.setItem("dashboard_session", JSON.stringify(authUser));
-    } else {
-      localStorage.removeItem("dashboard_session");
-    }
-  }, [authUser]);
+  const [userMessage, setUserMessage] = useState("");
 
   useEffect(() => {
     const onResize = () => {
@@ -77,22 +74,66 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      setAuthChecked(true);
+      return;
+    }
+
+    apiFetch("/api/auth/me")
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => {
+        setAuthUser(data.user);
+      })
+      .catch(() => {
+        localStorage.removeItem("auth_token");
+        setAuthUser(null);
+      })
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  useEffect(() => {
     if (!authUser) return;
 
     const obtenerNiveles = () => {
-      fetch("/api/niveles")
-        .then((res) => res.json())
+      apiFetch("/api/niveles")
+        .then((res) => {
+          if (res.status === 401) throw new Error("unauthorized");
+          return res.json();
+        })
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
         })
-        .catch((err) => console.error("Error al obtener niveles:", err));
+        .catch((err) => {
+          if (err.message === "unauthorized") {
+            localStorage.removeItem("auth_token");
+            setAuthUser(null);
+          }
+        });
     };
 
     obtenerNiveles();
     const interval = setInterval(obtenerNiveles, 1000);
     return () => clearInterval(interval);
   }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser || activeView !== "usuarios") return;
+
+    apiFetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => setUsers(data))
+      .catch(() => setUsers([]));
+
+    apiFetch("/api/login-logs")
+      .then((res) => res.json())
+      .then((data) => setLoginLogs(data))
+      .catch(() => setLoginLogs([]));
+  }, [authUser, activeView]);
 
   const widgetsInferiores = [
     { title: "Cinco", level: niveles.cinco, plc: plcStatus.cinco },
@@ -129,47 +170,73 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-
-    const found = users.find(
-      (u) =>
-        u.username === loginForm.username.trim() &&
-        u.password === loginForm.password
-    );
-
-    if (!found) {
-      setLoginError("Usuario o contraseña incorrectos");
-      return;
-    }
-
     setLoginError("");
-    setAuthUser({ username: found.username });
-    setLoginForm({ username: "", password: "" });
-    setActiveView("dashboard");
+
+    apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(loginForm),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al iniciar sesión");
+        return data;
+      })
+      .then((data) => {
+        localStorage.setItem("auth_token", data.token);
+        setAuthUser(data.user);
+        setLoginForm({ username: "", password: "" });
+        setActiveView("dashboard");
+      })
+      .catch((err) => setLoginError(err.message));
   };
 
   const handleLogout = () => {
+    localStorage.removeItem("auth_token");
     setAuthUser(null);
-    setSidebarOpen(!isMobile);
-    setLoginForm({ username: "", password: "" });
+    setUsers([]);
+    setLoginLogs([]);
   };
 
-  const addUser = (newUser) => {
-    const exists = users.some(
-      (u) => u.username.toLowerCase() === newUser.username.toLowerCase()
-    );
+  const handleCreateUser = (e) => {
+    e.preventDefault();
+    setUserMessage("");
 
-    if (exists) {
-      return { ok: false, message: "Ese usuario ya existe" };
-    }
+    apiFetch("/api/users", {
+      method: "POST",
+      body: JSON.stringify(userForm),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al crear usuario");
+        return data;
+      })
+      .then(() => {
+        setUserMessage("Usuario creado correctamente");
+        setUserForm({ username: "", password: "", role: "viewer" });
 
-    setUsers((prev) => [...prev, newUser]);
-    return { ok: true, message: "Usuario creado correctamente" };
+        return apiFetch("/api/users")
+          .then((res) => res.json())
+          .then((data) => setUsers(data));
+      })
+      .catch((err) => setUserMessage(err.message));
   };
 
-  const deleteUser = (username) => {
-    if (username === "admin") return;
-    setUsers((prev) => prev.filter((u) => u.username !== username));
+  const handleDeleteUser = (id) => {
+    apiFetch(`/api/users/${id}`, { method: "DELETE" })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar");
+        return data;
+      })
+      .then(() => {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+      })
+      .catch((err) => setUserMessage(err.message));
   };
+
+  if (!authChecked) {
+    return <div className="login-page"><div className="login-card">Cargando...</div></div>;
+  }
 
   if (!authUser) {
     return (
@@ -217,9 +284,7 @@ export default function App() {
 
         <nav className="sidebar__nav">
           <button
-            className={`nav-item ${
-              activeView === "dashboard" ? "nav-item--active" : ""
-            }`}
+            className={`nav-item ${activeView === "dashboard" ? "nav-item--active" : ""}`}
             onClick={() => setActiveView("dashboard")}
           >
             <span className="nav-item__icon">🛢️</span>
@@ -227,9 +292,7 @@ export default function App() {
           </button>
 
           <button
-            className={`nav-item ${
-              activeView === "historico" ? "nav-item--active" : ""
-            }`}
+            className={`nav-item ${activeView === "historico" ? "nav-item--active" : ""}`}
             onClick={() => setActiveView("historico")}
           >
             <span className="nav-item__icon">🕘</span>
@@ -237,9 +300,7 @@ export default function App() {
           </button>
 
           <button
-            className={`nav-item ${
-              activeView === "graficas" ? "nav-item--active" : ""
-            }`}
+            className={`nav-item ${activeView === "graficas" ? "nav-item--active" : ""}`}
             onClick={() => setActiveView("graficas")}
           >
             <span className="nav-item__icon">📈</span>
@@ -247,9 +308,7 @@ export default function App() {
           </button>
 
           <button
-            className={`nav-item ${
-              activeView === "usuarios" ? "nav-item--active" : ""
-            }`}
+            className={`nav-item ${activeView === "usuarios" ? "nav-item--active" : ""}`}
             onClick={() => setActiveView("usuarios")}
           >
             <span className="nav-item__icon">👥</span>
@@ -272,33 +331,12 @@ export default function App() {
                 ☰
               </button>
             )}
-
-            <div className="topbar__titles">
-              {activeView === "historico" && (
-                <>
-                  <h1>Histórico de Alarmas</h1>
-                  <p>Registro general de eventos y alarmas del sistema</p>
-                </>
-              )}
-
-              {activeView === "graficas" && (
-                <>
-                  <h1>Gráficas</h1>
-                  <p>Visualización histórica de niveles</p>
-                </>
-              )}
-
-              {activeView === "usuarios" && (
-                <>
-                  <h1>Usuarios</h1>
-                  <p>Alta y administración básica de usuarios</p>
-                </>
-              )}
-            </div>
           </div>
 
           <div className="topbar__user topbar__user--auth">
-            <span>BIENVENIDO {authUser.username.toUpperCase()}</span>
+            <span>
+              {authUser.username.toUpperCase()} | {authUser.role.toUpperCase()}
+            </span>
             <button className="logout-btn" onClick={handleLogout}>
               Salir
             </button>
@@ -350,9 +388,7 @@ export default function App() {
                   <div className="alarm-empty-state">
                     <div className="alarm-empty-icon">⚠️</div>
                     <p>No hay alarmas registradas por ahora</p>
-                    <small>
-                      Aquí aparecerán alertas, fallas y eventos del sistema.
-                    </small>
+                    <small>Aquí aparecerán alertas, fallas y eventos del sistema.</small>
                   </div>
                 </div>
               </div>
@@ -366,10 +402,7 @@ export default function App() {
               <div className="historico-header-card">
                 <div>
                   <h2>Histórico de alarmas</h2>
-                  <p>
-                    Vista general del registro de alarmas, fallas y eventos del
-                    sistema.
-                  </p>
+                  <p>Vista general del registro de alarmas, fallas y eventos del sistema.</p>
                 </div>
 
                 <div className="historico-stats">
@@ -379,11 +412,7 @@ export default function App() {
                   </div>
                   <div className="historico-stat">
                     <span>Altas</span>
-                    <strong>
-                      {
-                        alarmasDemo.filter((a) => a.prioridad === "alta").length
-                      }
-                    </strong>
+                    <strong>{alarmasDemo.filter((a) => a.prioridad === "alta").length}</strong>
                   </div>
                 </div>
               </div>
@@ -402,9 +431,7 @@ export default function App() {
                       <div className="historico-zone">{alarma.zona}</div>
                       <div className="historico-message">{alarma.mensaje}</div>
                       <div>
-                        <span
-                          className={`historico-badge historico-badge--${alarma.prioridad}`}
-                        >
+                        <span className={`historico-badge historico-badge--${alarma.prioridad}`}>
                           {alarma.prioridad}
                         </span>
                       </div>
@@ -425,7 +452,6 @@ export default function App() {
                   <h3>Cabo Viejo</h3>
                   <span>Tiempo vs Nivel</span>
                 </div>
-
                 <CaboViejoChart />
               </div>
 
@@ -438,7 +464,125 @@ export default function App() {
 
         {activeView === "usuarios" && (
           <section className="content">
-            <UsersPage users={users} addUser={addUser} deleteUser={deleteUser} />
+            <div className="users-page">
+              <div className="users-form-card">
+                <h2>Crear usuario</h2>
+
+                {authUser.role !== "admin" && (
+                  <div className="users-readonly-banner">
+                    Solo el administrador puede crear o eliminar usuarios.
+                  </div>
+                )}
+
+                <form className="users-form" onSubmit={handleCreateUser}>
+                  <div className="login-field">
+                    <label>Usuario</label>
+                    <input
+                      type="text"
+                      value={userForm.username}
+                      disabled={authUser.role !== "admin"}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({ ...prev, username: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="login-field">
+                    <label>Contraseña</label>
+                    <input
+                      type="text"
+                      value={userForm.password}
+                      disabled={authUser.role !== "admin"}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({ ...prev, password: e.target.value }))
+                      }
+                    />
+                  </div>
+
+                  <div className="login-field">
+                    <label>Rol</label>
+                    <select
+                      className="users-select"
+                      value={userForm.role}
+                      disabled={authUser.role !== "admin"}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({ ...prev, role: e.target.value }))
+                      }
+                    >
+                      <option value="viewer">viewer</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+
+                  {userMessage && <div className="users-message">{userMessage}</div>}
+
+                  <button
+                    className="login-btn"
+                    type="submit"
+                    disabled={authUser.role !== "admin"}
+                  >
+                    Crear usuario
+                  </button>
+                </form>
+              </div>
+
+              <div className="users-list-card">
+                <h2>Usuarios registrados</h2>
+
+                <div className="users-list">
+                  {users.map((user) => (
+                    <div className="user-row" key={user.id}>
+                      <div>
+                        <strong>{user.username}</strong>
+                        <p>
+                          Rol: {user.role} | Creado: {user.created_at}
+                        </p>
+                      </div>
+
+                      <button
+                        className="user-delete-btn"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={authUser.role !== "admin" || user.username === "admin"}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="users-list-card users-list-card--full">
+                <h2>Log de sesiones</h2>
+
+                <div className="historico-log-table">
+                  <div className="historico-log-head">
+                    <div>Usuario</div>
+                    <div>Rol</div>
+                    <div>Resultado</div>
+                    <div>Hora / IP</div>
+                  </div>
+
+                  {loginLogs.map((log) => (
+                    <div className="historico-log-row" key={log.id}>
+                      <div className="historico-zone">{log.username}</div>
+                      <div className="historico-message">{log.role || "-"}</div>
+                      <div>
+                        <span
+                          className={`historico-badge ${
+                            log.success ? "historico-badge--baja" : "historico-badge--alta"
+                          }`}
+                        >
+                          {log.success ? "Éxito" : "Falló"}
+                        </span>
+                      </div>
+                      <div className="historico-date">
+                        {log.created_at} | {log.ip}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </section>
         )}
       </main>
@@ -492,176 +636,17 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
           <button type="submit" className="login-btn">
             Iniciar sesión
           </button>
-
-          <div className="login-hint">
-            Usuario inicial: <strong>admin</strong> | Password:{" "}
-            <strong>TAM$123</strong>
-          </div>
         </form>
-      </div>
-    </div>
-  );
-}
-
-function UsersPage({ users, addUser, deleteUser }) {
-  const [form, setForm] = useState({
-    username: "",
-    password: "",
-  });
-  const [message, setMessage] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!form.username.trim() || !form.password.trim()) {
-      setMessage("Completa usuario y contraseña");
-      return;
-    }
-
-    const result = addUser({
-      username: form.username.trim(),
-      password: form.password,
-    });
-
-    setMessage(result.message);
-
-    if (result.ok) {
-      setForm({ username: "", password: "" });
-    }
-  };
-
-  return (
-    <div className="users-page">
-      <div className="users-form-card">
-        <h2>Crear usuario</h2>
-
-        <form className="users-form" onSubmit={handleSubmit}>
-          <div className="login-field">
-            <label>Usuario</label>
-            <input
-              type="text"
-              value={form.username}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, username: e.target.value }))
-              }
-              placeholder="Nuevo usuario"
-            />
-          </div>
-
-          <div className="login-field">
-            <label>Contraseña</label>
-            <input
-              type="text"
-              value={form.password}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, password: e.target.value }))
-              }
-              placeholder="Nueva contraseña"
-            />
-          </div>
-
-          {message && <div className="users-message">{message}</div>}
-
-          <button className="login-btn" type="submit">
-            Crear usuario
-          </button>
-        </form>
-      </div>
-
-      <div className="users-list-card">
-        <h2>Usuarios registrados</h2>
-
-        <div className="users-list">
-          {users.map((user) => (
-            <div className="user-row" key={user.username}>
-              <div>
-                <strong>{user.username}</strong>
-                <p>{user.username === "admin" ? "Usuario principal" : "Usuario creado"}</p>
-              </div>
-
-              <button
-                className="user-delete-btn"
-                onClick={() => deleteUser(user.username)}
-                disabled={user.username === "admin"}
-              >
-                Eliminar
-              </button>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
 }
 
 function PlantaCard({ level, plc }) {
-  const [noDisponible, setNoDisponible] = useState(false);
-
   return (
-    <article
-      className={`dashboard-card dashboard-card--planta ${
-        noDisponible ? "dashboard-card--disabled" : ""
-      }`}
-    >
-      <button
-        className={`power-button ${noDisponible ? "power-button--off" : ""}`}
-        onClick={() => setNoDisponible(!noDisponible)}
-        type="button"
-      >
-        ⏻
-      </button>
-
-      {noDisponible && (
-        <div className="card-disabled-banner">NO DISPONIBLE</div>
-      )}
-
+    <article className="dashboard-card dashboard-card--planta">
       <CardHeader title="PLANTA" />
       <TankGauge level={level} />
-
-      <div className="control-section-card">
-        <div className="control-section-card__title">Control de Trenes</div>
-
-        <div className="button-grid button-grid--3">
-          <button className="action-btn" disabled={noDisponible}>
-            TREN A
-          </button>
-          <button
-            className="action-btn action-btn--active"
-            disabled={noDisponible}
-          >
-            TREN B
-          </button>
-          <button className="action-btn" disabled={noDisponible}>
-            TREN C
-          </button>
-        </div>
-      </div>
-
-      <div className="control-section-card">
-        <div className="control-section-card__title">Control de Bombas</div>
-
-        <div className="button-grid button-grid--3">
-          <button className="action-btn" disabled={noDisponible}>
-            BOMBA A
-          </button>
-          <button className="action-btn" disabled={noDisponible}>
-            BOMBA B
-          </button>
-          <button
-            className="action-btn action-btn--active"
-            disabled={noDisponible}
-          >
-            BOMBA C
-          </button>
-        </div>
-      </div>
-
-      <div className="plant-reset-row">
-        <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET CONTADORES
-        </button>
-      </div>
-
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
@@ -694,12 +679,6 @@ function FalconeCard({ level, plc }) {
     <article className="dashboard-card">
       <CardHeader title="FALCONE" />
       <TankGauge level={level} />
-
-      <div className="pump-grid pump-grid--2">
-        <PumpBox name="P80A" runtime={0} state="ALARMADO" active="OFF" alert />
-        <PumpBox name="P80B" runtime={0} state="ALARMADO" active="OFF" alert />
-      </div>
-
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
@@ -719,12 +698,8 @@ function MiniTankCard({ title, level, plc }) {
       <div className="mini-gauge-wrap">
         <div className="mini-gauge">
           <div className="mini-gauge__inner">
-            <div
-              className="mini-gauge__water"
-              style={{ height: `${safeLevel}%` }}
-            />
+            <div className="mini-gauge__water" style={{ height: `${safeLevel}%` }} />
           </div>
-
           <div className="mini-gauge__value">{safeLevel}%</div>
         </div>
       </div>
@@ -743,7 +718,6 @@ function CardHeader({ title }) {
         <h2>{title}</h2>
         <span className="status-dot" />
       </div>
-
       <button className="more-btn">⋮</button>
     </div>
   );
@@ -753,34 +727,18 @@ function PumpBox({ name, state, active, runtime, alert = false }) {
   return (
     <div className="pump-box">
       <div className="pump-box__name">{name}</div>
-      <div
-        className={`pump-box__state ${alert ? "pump-box__state--alert" : ""}`}
-      >
+      <div className={`pump-box__state ${alert ? "pump-box__state--alert" : ""}`}>
         {state}
       </div>
 
       <div className="mode-grid">
-        <button
-          className={`mode-btn ${active === "HAND" ? "mode-btn--active" : ""}`}
-        >
-          HAND
-        </button>
-        <button
-          className={`mode-btn ${active === "OFF" ? "mode-btn--active" : ""}`}
-        >
-          OFF
-        </button>
-        <button
-          className={`mode-btn ${active === "AUTO" ? "mode-btn--active" : ""}`}
-        >
-          AUTO
-        </button>
+        <button className={`mode-btn ${active === "HAND" ? "mode-btn--active" : ""}`}>HAND</button>
+        <button className={`mode-btn ${active === "OFF" ? "mode-btn--active" : ""}`}>OFF</button>
+        <button className={`mode-btn ${active === "AUTO" ? "mode-btn--active" : ""}`}>AUTO</button>
       </div>
 
       <div className="runtime-list">
-        <div className="runtime-pill">
-          RUNTIME {name}: {runtime}
-        </div>
+        <div className="runtime-pill">RUNTIME {name}: {runtime}</div>
       </div>
     </div>
   );
@@ -811,17 +769,14 @@ function CaboViejoChart() {
 
   useEffect(() => {
     const fetchRows = () => {
-      fetch("/api/cabo-viejo")
+      apiFetch("/api/cabo-viejo")
         .then((res) => res.json())
         .then((data) => {
           const ordenados = [...data].reverse();
           setRows(ordenados);
           setLoading(false);
         })
-        .catch((err) => {
-          console.error("Error al cargar gráfica:", err);
-          setLoading(false);
-        });
+        .catch(() => setLoading(false));
     };
 
     fetchRows();
@@ -831,13 +786,8 @@ function CaboViejoChart() {
 
   const chartData = useMemo(() => rows.slice(-20), [rows]);
 
-  if (loading) {
-    return <div className="chart-empty">Cargando datos...</div>;
-  }
-
-  if (!chartData.length) {
-    return <div className="chart-empty">No hay datos de Cabo Viejo todavía.</div>;
-  }
+  if (loading) return <div className="chart-empty">Cargando datos...</div>;
+  if (!chartData.length) return <div className="chart-empty">No hay datos de Cabo Viejo todavía.</div>;
 
   const width = 900;
   const height = 320;
@@ -846,16 +796,9 @@ function CaboViejoChart() {
   const maxY = 100;
 
   const buildPoint = (item, index) => {
-    const x =
-      padding +
-      (index * (width - padding * 2)) / Math.max(chartData.length - 1, 1);
-
+    const x = padding + (index * (width - padding * 2)) / Math.max(chartData.length - 1, 1);
     const nivel = Number(item.nivel) || 0;
-    const y =
-      height -
-      padding -
-      ((nivel - minY) / (maxY - minY)) * (height - padding * 2);
-
+    const y = height - padding - ((nivel - minY) / (maxY - minY)) * (height - padding * 2);
     return { x, y, nivel, item };
   };
 
@@ -865,49 +808,19 @@ function CaboViejoChart() {
   return (
     <div className="chart-wrap">
       <div className="chart-svg-container">
-        <svg
-          viewBox={`0 0 ${width} ${height}`}
-          className="chart-svg"
-          preserveAspectRatio="none"
-        >
+        <svg viewBox={`0 0 ${width} ${height}`} className="chart-svg" preserveAspectRatio="none">
           {[0, 25, 50, 75, 100].map((value) => {
-            const y =
-              height -
-              padding -
-              ((value - minY) / (maxY - minY)) * (height - padding * 2);
-
+            const y = height - padding - ((value - minY) / (maxY - minY)) * (height - padding * 2);
             return (
               <g key={value}>
-                <line
-                  x1={padding}
-                  y1={y}
-                  x2={width - padding}
-                  y2={y}
-                  className="chart-grid-line"
-                />
-                <text x="8" y={y + 4} className="chart-axis-text">
-                  {value}
-                </text>
+                <line x1={padding} y1={y} x2={width - padding} y2={y} className="chart-grid-line" />
+                <text x="8" y={y + 4} className="chart-axis-text">{value}</text>
               </g>
             );
           })}
 
-          <line
-            x1={padding}
-            y1={height - padding}
-            x2={width - padding}
-            y2={height - padding}
-            className="chart-axis-line"
-          />
-
-          <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={height - padding}
-            className="chart-axis-line"
-          />
-
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} className="chart-axis-line" />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} className="chart-axis-line" />
           <polyline points={points} className="chart-line" fill="none" />
 
           {pointsData.map((p) => (

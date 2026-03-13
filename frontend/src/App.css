@@ -1709,3 +1709,30 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.users-readonly-banner {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef3f8 100%);
+  border: 1px solid #dbe3ee;
+  color: #6f7d93;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.users-select {
+  width: 100%;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid #d8e0eb;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f8fc 100%);
+  color: #24334d;
+  font-size: 14px;
+  outline: none;
+}
+
+.users-list-card--full {
+  grid-column: 1 / -1;
+}
