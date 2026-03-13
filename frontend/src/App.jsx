@@ -47,7 +47,7 @@ export default function App() {
 
   useEffect(() => {
     const obtenerNiveles = () => {
-      fetch("http://localhost:3001/api/niveles")
+      fetch("/api/niveles")
         .then((res) => res.json())
         .then((data) => {
           setNiveles(data.niveles || {});
@@ -552,7 +552,7 @@ function CaboViejoChart() {
 
   useEffect(() => {
     const fetchRows = () => {
-      fetch("http://localhost:3001/api/cabo-viejo")
+      fetch("/api/cabo-viejo")
         .then((res) => res.json())
         .then((data) => {
           const ordenados = [...data].reverse();
