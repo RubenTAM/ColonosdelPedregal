@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const DEFAULT_USERS = [{ username: "admin", password: "TAM$123" }];
-
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
@@ -34,35 +32,6 @@ export default function App() {
     cuadrada: 0,
   });
 
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem("dashboard_users");
-    return saved ? JSON.parse(saved) : DEFAULT_USERS;
-  });
-
-  const [authUser, setAuthUser] = useState(() => {
-    const saved = localStorage.getItem("dashboard_session");
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const [loginForm, setLoginForm] = useState({
-    username: "",
-    password: "",
-  });
-
-  const [loginError, setLoginError] = useState("");
-
-  useEffect(() => {
-    localStorage.setItem("dashboard_users", JSON.stringify(users));
-  }, [users]);
-
-  useEffect(() => {
-    if (authUser) {
-      localStorage.setItem("dashboard_session", JSON.stringify(authUser));
-    } else {
-      localStorage.removeItem("dashboard_session");
-    }
-  }, [authUser]);
-
   useEffect(() => {
     const onResize = () => {
       const mobile = window.innerWidth <= 900;
@@ -77,8 +46,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!authUser) return;
-
     const obtenerNiveles = () => {
       fetch("/api/niveles")
         .then((res) => res.json())
@@ -92,7 +59,7 @@ export default function App() {
     obtenerNiveles();
     const interval = setInterval(obtenerNiveles, 1000);
     return () => clearInterval(interval);
-  }, [authUser]);
+  }, []);
 
   const widgetsInferiores = [
     { title: "Cinco", level: niveles.cinco, plc: plcStatus.cinco },
@@ -126,61 +93,6 @@ export default function App() {
       prioridad: "baja",
     },
   ];
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-
-    const found = users.find(
-      (u) =>
-        u.username === loginForm.username.trim() &&
-        u.password === loginForm.password
-    );
-
-    if (!found) {
-      setLoginError("Usuario o contraseña incorrectos");
-      return;
-    }
-
-    setLoginError("");
-    setAuthUser({ username: found.username });
-    setLoginForm({ username: "", password: "" });
-    setActiveView("dashboard");
-  };
-
-  const handleLogout = () => {
-    setAuthUser(null);
-    setSidebarOpen(!isMobile);
-    setLoginForm({ username: "", password: "" });
-  };
-
-  const addUser = (newUser) => {
-    const exists = users.some(
-      (u) => u.username.toLowerCase() === newUser.username.toLowerCase()
-    );
-
-    if (exists) {
-      return { ok: false, message: "Ese usuario ya existe" };
-    }
-
-    setUsers((prev) => [...prev, newUser]);
-    return { ok: true, message: "Usuario creado correctamente" };
-  };
-
-  const deleteUser = (username) => {
-    if (username === "admin") return;
-    setUsers((prev) => prev.filter((u) => u.username !== username));
-  };
-
-  if (!authUser) {
-    return (
-      <LoginScreen
-        loginForm={loginForm}
-        setLoginForm={setLoginForm}
-        handleLogin={handleLogin}
-        loginError={loginError}
-      />
-    );
-  }
 
   return (
     <div className="app-shell">
@@ -246,12 +158,7 @@ export default function App() {
             <span>Gráficas</span>
           </button>
 
-          <button
-            className={`nav-item ${
-              activeView === "usuarios" ? "nav-item--active" : ""
-            }`}
-            onClick={() => setActiveView("usuarios")}
-          >
+          <button className="nav-item">
             <span className="nav-item__icon">👥</span>
             <span>Usuarios</span>
           </button>
@@ -287,22 +194,10 @@ export default function App() {
                   <p>Visualización histórica de niveles</p>
                 </>
               )}
-
-              {activeView === "usuarios" && (
-                <>
-                  <h1>Usuarios</h1>
-                  <p>Alta y administración básica de usuarios</p>
-                </>
-              )}
             </div>
           </div>
 
-          <div className="topbar__user topbar__user--auth">
-            <span>BIENVENIDO {authUser.username.toUpperCase()}</span>
-            <button className="logout-btn" onClick={handleLogout}>
-              Salir
-            </button>
-          </div>
+          <div className="topbar__user">BIENVENIDO ______________</div>
         </header>
 
         {activeView === "dashboard" && (
@@ -435,161 +330,7 @@ export default function App() {
             </div>
           </section>
         )}
-
-        {activeView === "usuarios" && (
-          <section className="content">
-            <UsersPage users={users} addUser={addUser} deleteUser={deleteUser} />
-          </section>
-        )}
       </main>
-    </div>
-  );
-}
-
-function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
-  return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-brand">
-          <div className="login-brand__logo">
-            <div className="brand__wave brand__wave--blue" />
-            <div className="brand__wave brand__wave--green" />
-          </div>
-
-          <div>
-            <h1>Colonos del Pedregal</h1>
-            <p>Acceso al dashboard</p>
-          </div>
-        </div>
-
-        <form className="login-form" onSubmit={handleLogin}>
-          <div className="login-field">
-            <label>Usuario</label>
-            <input
-              type="text"
-              value={loginForm.username}
-              onChange={(e) =>
-                setLoginForm((prev) => ({ ...prev, username: e.target.value }))
-              }
-              placeholder="Ingresa tu usuario"
-            />
-          </div>
-
-          <div className="login-field">
-            <label>Contraseña</label>
-            <input
-              type="password"
-              value={loginForm.password}
-              onChange={(e) =>
-                setLoginForm((prev) => ({ ...prev, password: e.target.value }))
-              }
-              placeholder="Ingresa tu contraseña"
-            />
-          </div>
-
-          {loginError && <div className="login-error">{loginError}</div>}
-
-          <button type="submit" className="login-btn">
-            Iniciar sesión
-          </button>
-
-          <div className="login-hint">
-            Usuario inicial: <strong>admin</strong> | Password:{" "}
-            <strong>TAM$123</strong>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
-function UsersPage({ users, addUser, deleteUser }) {
-  const [form, setForm] = useState({
-    username: "",
-    password: "",
-  });
-  const [message, setMessage] = useState("");
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    if (!form.username.trim() || !form.password.trim()) {
-      setMessage("Completa usuario y contraseña");
-      return;
-    }
-
-    const result = addUser({
-      username: form.username.trim(),
-      password: form.password,
-    });
-
-    setMessage(result.message);
-
-    if (result.ok) {
-      setForm({ username: "", password: "" });
-    }
-  };
-
-  return (
-    <div className="users-page">
-      <div className="users-form-card">
-        <h2>Crear usuario</h2>
-
-        <form className="users-form" onSubmit={handleSubmit}>
-          <div className="login-field">
-            <label>Usuario</label>
-            <input
-              type="text"
-              value={form.username}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, username: e.target.value }))
-              }
-              placeholder="Nuevo usuario"
-            />
-          </div>
-
-          <div className="login-field">
-            <label>Contraseña</label>
-            <input
-              type="text"
-              value={form.password}
-              onChange={(e) =>
-                setForm((prev) => ({ ...prev, password: e.target.value }))
-              }
-              placeholder="Nueva contraseña"
-            />
-          </div>
-
-          {message && <div className="users-message">{message}</div>}
-
-          <button className="login-btn" type="submit">
-            Crear usuario
-          </button>
-        </form>
-      </div>
-
-      <div className="users-list-card">
-        <h2>Usuarios registrados</h2>
-
-        <div className="users-list">
-          {users.map((user) => (
-            <div className="user-row" key={user.username}>
-              <div>
-                <strong>{user.username}</strong>
-                <p>{user.username === "admin" ? "Usuario principal" : "Usuario creado"}</p>
-              </div>
-
-              <button
-                className="user-delete-btn"
-                onClick={() => deleteUser(user.username)}
-                disabled={user.username === "admin"}
-              >
-                Eliminar
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
