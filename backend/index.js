@@ -149,6 +149,7 @@ client.on("connect", () => {
       console.log("Error al suscribirse:", err);
     } else {
       console.log("Suscrito a los topics correctamente");
+      console.log("TOPICS:");
       console.log(topics);
     }
   });

@@ -125,7 +125,7 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
-          setPlantaBotones(data.setPlantaBotones || {});
+          setPlantaBotones(data.plantaBotones || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
     };
