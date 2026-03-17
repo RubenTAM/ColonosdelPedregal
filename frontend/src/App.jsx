@@ -1,10 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
+function apiFetch(url, options = {}) {
+  const token = localStorage.getItem("auth_token");
+
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
+    },
+  });
+}
+
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
+
+  const [authUser, setAuthUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const [loginForm, setLoginForm] = useState({
+    username: "",
+    password: "",
+  });
+  const [loginError, setLoginError] = useState("");
 
   const [niveles, setNiveles] = useState({
     planta: 0,
@@ -32,6 +54,15 @@ export default function App() {
     cuadrada: 0,
   });
 
+  const [users, setUsers] = useState([]);
+  const [loginLogs, setLoginLogs] = useState([]);
+  const [userMessage, setUserMessage] = useState("");
+  const [userForm, setUserForm] = useState({
+    username: "",
+    password: "",
+    role: "viewer",
+  });
+
   useEffect(() => {
     const onResize = () => {
       const mobile = window.innerWidth <= 900;
@@ -46,6 +77,31 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+
+    if (!token) {
+      setAuthChecked(true);
+      return;
+    }
+
+    apiFetch("/api/auth/me")
+      .then((res) => {
+        if (!res.ok) throw new Error("Token inválido");
+        return res.json();
+      })
+      .then((data) => {
+        setAuthUser(data.user);
+      })
+      .catch(() => {
+        localStorage.removeItem("auth_token");
+        setAuthUser(null);
+      })
+      .finally(() => setAuthChecked(true));
+  }, []);
+
+  useEffect(() => {
+    if (!authUser) return;
+
     const obtenerNiveles = () => {
       fetch("/api/niveles")
         .then((res) => res.json())
@@ -59,7 +115,19 @@ export default function App() {
     obtenerNiveles();
     const interval = setInterval(obtenerNiveles, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser || activeView !== "usuarios") return;
+
+    apiFetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => setUsers(Array.isArray(data) ? data : []));
+
+    apiFetch("/api/login-logs")
+      .then((res) => res.json())
+      .then((data) => setLoginLogs(Array.isArray(data) ? data : []));
+  }, [authUser, activeView]);
 
   const widgetsInferiores = [
     { title: "Cinco", level: niveles.cinco, plc: plcStatus.cinco },
@@ -93,6 +161,98 @@ export default function App() {
       prioridad: "baja",
     },
   ];
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+
+    apiFetch("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(loginForm),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error de login");
+        return data;
+      })
+      .then((data) => {
+        localStorage.setItem("auth_token", data.token);
+        setAuthUser(data.user);
+        setLoginError("");
+        setLoginForm({ username: "", password: "" });
+        setActiveView("dashboard");
+      })
+      .catch((err) => setLoginError(err.message));
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("auth_token");
+    setAuthUser(null);
+    setLoginForm({ username: "", password: "" });
+    setSidebarOpen(!isMobile);
+  };
+
+  const handleCreateUser = (e) => {
+    e.preventDefault();
+
+    apiFetch("/api/users", {
+      method: "POST",
+      body: JSON.stringify(userForm),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al crear usuario");
+        return data;
+      })
+      .then(() => {
+        setUserMessage("Usuario creado correctamente");
+        setUserForm({
+          username: "",
+          password: "",
+          role: "viewer",
+        });
+
+        return apiFetch("/api/users")
+          .then((res) => res.json())
+          .then((data) => setUsers(Array.isArray(data) ? data : []));
+      })
+      .catch((err) => setUserMessage(err.message));
+  };
+
+  const handleDeleteUser = (id) => {
+    apiFetch(`/api/users/${id}`, {
+      method: "DELETE",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al eliminar");
+        return data;
+      })
+      .then(() => {
+        setUsers((prev) => prev.filter((u) => u.id !== id));
+      })
+      .catch((err) => setUserMessage(err.message));
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="login-page">
+        <div className="login-card">Cargando...</div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <LoginScreen
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
+        handleLogin={handleLogin}
+        loginError={loginError}
+      />
+    );
+  }
+
+  const isAdmin = authUser.role === "admin";
 
   return (
     <div className="app-shell">
@@ -158,7 +318,12 @@ export default function App() {
             <span>Gráficas</span>
           </button>
 
-          <button className="nav-item">
+          <button
+            className={`nav-item ${
+              activeView === "usuarios" ? "nav-item--active" : ""
+            }`}
+            onClick={() => setActiveView("usuarios")}
+          >
             <span className="nav-item__icon">👥</span>
             <span>Usuarios</span>
           </button>
@@ -194,10 +359,24 @@ export default function App() {
                   <p>Visualización histórica de niveles</p>
                 </>
               )}
+
+              {activeView === "usuarios" && (
+                <>
+                  <h1>Usuarios</h1>
+                  <p>Administración y bitácora de accesos</p>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="topbar__user">BIENVENIDO ______________</div>
+          <div className="topbar__user topbar__user--auth">
+            <span>
+              BIENVENIDO {authUser.username.toUpperCase()} ({authUser.role.toUpperCase()})
+            </span>
+            <button className="logout-btn" onClick={handleLogout}>
+              Salir
+            </button>
+          </div>
         </header>
 
         {activeView === "dashboard" && (
@@ -330,7 +509,195 @@ export default function App() {
             </div>
           </section>
         )}
+
+        {activeView === "usuarios" && (
+          <section className="content">
+            <div className="users-page">
+              <div
+                className={`users-form-card ${
+                  !isAdmin ? "users-form-card--disabled" : ""
+                }`}
+              >
+                <h2>Crear usuario</h2>
+
+                {!isAdmin && (
+                  <div className="card-disabled-banner">NO DISPONIBLE</div>
+                )}
+
+                <form className="users-form" onSubmit={handleCreateUser}>
+                  <div className="login-field">
+                    <label>Usuario</label>
+                    <input
+                      type="text"
+                      value={userForm.username}
+                      disabled={!isAdmin}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({
+                          ...prev,
+                          username: e.target.value,
+                        }))
+                      }
+                      placeholder="Nuevo usuario"
+                    />
+                  </div>
+
+                  <div className="login-field">
+                    <label>Contraseña</label>
+                    <input
+                      type="text"
+                      value={userForm.password}
+                      disabled={!isAdmin}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({
+                          ...prev,
+                          password: e.target.value,
+                        }))
+                      }
+                      placeholder="Nueva contraseña"
+                    />
+                  </div>
+
+                  <div className="login-field">
+                    <label>Rol</label>
+                    <select
+                      className="users-select"
+                      value={userForm.role}
+                      disabled={!isAdmin}
+                      onChange={(e) =>
+                        setUserForm((prev) => ({
+                          ...prev,
+                          role: e.target.value,
+                        }))
+                      }
+                    >
+                      <option value="viewer">viewer</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+
+                  {userMessage && <div className="users-message">{userMessage}</div>}
+
+                  <button className="login-btn" type="submit" disabled={!isAdmin}>
+                    Crear usuario
+                  </button>
+                </form>
+              </div>
+
+              <div
+                className={`users-list-card ${
+                  !isAdmin ? "users-form-card--disabled" : ""
+                }`}
+              >
+                <h2>Usuarios registrados</h2>
+
+                {!isAdmin && (
+                  <div className="card-disabled-banner">NO DISPONIBLE</div>
+                )}
+
+                <div className="users-list">
+                  {users.map((user) => (
+                    <div className="user-row" key={user.id}>
+                      <div>
+                        <strong>{user.username}</strong>
+                        <p>
+                          Rol: {user.role} | Creado: {user.created_at}
+                        </p>
+                      </div>
+
+                      <button
+                        className="user-delete-btn"
+                        onClick={() => handleDeleteUser(user.id)}
+                        disabled={!isAdmin || user.username === "admin"}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="users-list-card users-list-card--full">
+                <h2>Historial de logins</h2>
+
+                <div className="alarm-log-body users-log-body">
+                  {loginLogs.length === 0 ? (
+                    <div className="alarm-empty-state">
+                      <div className="alarm-empty-icon">🕘</div>
+                      <p>No hay inicios de sesión registrados</p>
+                      <small>
+                        Aquí aparecerán usuario y hora de acceso.
+                      </small>
+                    </div>
+                  ) : (
+                    loginLogs.map((log) => (
+                      <div className="alarm-item" key={log.id}>
+                        <div>
+                          <strong>{log.username}</strong>
+                          <p>{log.username} inició sesión</p>
+                        </div>
+
+                        <span className="historico-date">{log.login_time}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
+    </div>
+  );
+}
+
+function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="login-brand__logo">
+            <div className="brand__wave brand__wave--blue" />
+            <div className="brand__wave brand__wave--green" />
+          </div>
+
+          <div>
+            <h1>Colonos del Pedregal</h1>
+            <p>Acceso al dashboard</p>
+          </div>
+        </div>
+
+        <form className="login-form" onSubmit={handleLogin}>
+          <div className="login-field">
+            <label>Usuario</label>
+            <input
+              type="text"
+              value={loginForm.username}
+              onChange={(e) =>
+                setLoginForm((prev) => ({ ...prev, username: e.target.value }))
+              }
+              placeholder="Ingresa tu usuario"
+            />
+          </div>
+
+          <div className="login-field">
+            <label>Contraseña</label>
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(e) =>
+                setLoginForm((prev) => ({ ...prev, password: e.target.value }))
+              }
+              placeholder="Ingresa tu contraseña"
+            />
+          </div>
+
+          {loginError && <div className="login-error">{loginError}</div>}
+
+          <button type="submit" className="login-btn">
+            Iniciar sesión
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
