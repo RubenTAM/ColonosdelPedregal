@@ -42,6 +42,13 @@ let plcStatus = {
   cuadrada: 0,
 };
 
+let bombasCaboviejo = {
+  p70a: { man: 0, off: 0, auto: 1, running: 0 },
+  p70b: { man: 0, off: 0, auto: 1, running: 0 },
+  p71a: { man: 0, off: 0, auto: 1, running: 0 },
+  p71b: { man: 0, off: 0, auto: 1, running: 0 },
+};
+
 let guardandoHistorico = false;
 
 /* TOPICS MQTT - NIVELES */
@@ -76,10 +83,40 @@ const topicToKeyRuntime = {
   Caboviejo_Real_5: "runtime_p71b",
 };
 
+/* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
+const topicToKeyBombasCaboviejo = {
+  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
+  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
+  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
+  Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
+
+  Caboviejo_Bool_5: { bomba: "p70b", campo: "man" },
+  Caboviejo_Bool_6: { bomba: "p70b", campo: "off" },
+  Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
+  Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
+
+  Caboviejo_Bool_8: { bomba: "p71a", campo: "man" },
+  Caboviejo_Bool_9: { bomba: "p71a", campo: "off" },
+  Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
+  Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
+
+  Caboviejo_Bool_11: { bomba: "p71b", campo: "man" },
+  Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
+  Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
+  Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
+};
+
 const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
-const topics = [...topicsNivel, ...topicsPlc, ...topicsRuntime];
+const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
+
+const topics = [
+  ...topicsNivel,
+  ...topicsPlc,
+  ...topicsRuntime,
+  ...topicsBombasCaboviejo,
+];
 
 const client = mqtt.connect(MQTT_URL);
 
@@ -98,6 +135,19 @@ client.on("connect", () => {
 
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
+
+    /* BOTONES Y ESTADO DE BOMBAS CABO VIEJO */
+  if (topicToKeyBombasCaboviejo[topic]) {
+    const { bomba, campo } = topicToKeyBombasCaboviejo[topic];
+
+    const valorNormalizado =
+      texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
+
+    bombasCaboviejo[bomba][campo] = valorNormalizado;
+
+    console.log(`Bomba ${bomba} - ${campo}:`, valorNormalizado);
+    return;
+  }
 
   /* NIVELES */
   if (topicToKeyNivel[topic]) {
@@ -353,6 +403,7 @@ app.get("/api/niveles", (req, res) => {
   res.json({
     niveles,
     plcStatus,
+    bombasCaboviejo
   });
 });
 

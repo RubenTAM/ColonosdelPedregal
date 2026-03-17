@@ -54,6 +54,13 @@ export default function App() {
     cuadrada: 0,
   });
 
+   const [bombasCaboviejo, setBombasCaboviejo] = useState({
+    p70a: { man: 0, off: 0, auto: 1, running: 0 },
+    p70b: { man: 0, off: 0, auto: 1, running: 0 },
+    p71a: { man: 0, off: 0, auto: 1, running: 0 },
+    p71b: { man: 0, off: 0, auto: 1, running: 0 },
+  });
+
   const [users, setUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [userMessage, setUserMessage] = useState("");
@@ -108,6 +115,7 @@ export default function App() {
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
+          setBombasCaboviejo(data.bombasCaboviejo || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
     };
@@ -391,6 +399,7 @@ export default function App() {
                 p70b={niveles.runtime_p70b}
                 p71a={niveles.runtime_p71a}
                 p71b={niveles.runtime_p71b}
+                bombasCaboviejo={bombasCaboviejo}
               />
 
               <FalconeCard level={niveles.falcone} plc={plcStatus.falcone} />
@@ -777,17 +786,33 @@ function PlantaCard({ level, plc }) {
   );
 }
 
-function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b }) {
+function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b, bombasCaboviejo }) {
   return (
     <article className="dashboard-card">
       <CardHeader title="CABO VIEJO" />
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
-        <PumpBox name="P70A" runtime={p70a} state="APAGADO" active="AUTO" />
-        <PumpBox name="P70B" runtime={p70b} state="ENCENDIDO" active="AUTO" />
-        <PumpBox name="P71A" runtime={p71a} state="ENCENDIDO" active="AUTO" />
-        <PumpBox name="P71B" runtime={p71b} state="APAGADO" active="AUTO" />
+        <PumpBox
+          name="P70A"
+          runtime={p70a}
+          modes={bombasCaboviejo.p70a}
+        />
+        <PumpBox
+          name="P70B"
+          runtime={p70b}
+          modes={bombasCaboviejo.p70b}
+        />
+        <PumpBox
+          name="P71A"
+          runtime={p71a}
+          modes={bombasCaboviejo.p71a}
+        />
+        <PumpBox
+          name="P71B"
+          runtime={p71b}
+          modes={bombasCaboviejo.p71b}
+        />
       </div>
 
       <div className="footer-pills">
@@ -857,30 +882,34 @@ function CardHeader({ title }) {
   );
 }
 
-function PumpBox({ name, state, active, runtime, alert = false }) {
+function PumpBox({ name, runtime, modes = {}, alert = false }) {
+  const manActivo = Number(modes.man) === 1;
+  const offActivo = Number(modes.off) === 1;
+  const autoActivo = Number(modes.auto) === 1;
+  const runningActivo = Number(modes.running) === 1;
+
+  const stateText = runningActivo ? "ENCENDIDO" : "APAGADO";
+
   return (
     <div className="pump-box">
       <div className="pump-box__name">{name}</div>
+
       <div
         className={`pump-box__state ${alert ? "pump-box__state--alert" : ""}`}
       >
-        {state}
+        {stateText}
       </div>
 
       <div className="mode-grid">
-        <button
-          className={`mode-btn ${active === "HAND" ? "mode-btn--active" : ""}`}
-        >
+        <button className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}>
           HAND
         </button>
-        <button
-          className={`mode-btn ${active === "OFF" ? "mode-btn--active" : ""}`}
-        >
+
+        <button className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}>
           OFF
         </button>
-        <button
-          className={`mode-btn ${active === "AUTO" ? "mode-btn--active" : ""}`}
-        >
+
+        <button className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}>
           AUTO
         </button>
       </div>
