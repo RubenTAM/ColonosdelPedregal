@@ -2,6 +2,9 @@ const express = require("express");
 const cors = require("cors");
 const mqtt = require("mqtt");
 const db = require("./database");
+const usersDb = require("./usersDatabase");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const app = express();
 
@@ -10,6 +13,7 @@ app.use(express.json());
 
 const PORT = 3001;
 const MQTT_URL = "mqtt://18.216.64.219:1883";
+const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 
 /* ESTADO EN MEMORIA */
 let niveles = {
@@ -127,7 +131,7 @@ client.on("message", (topic, message) => {
   }
 });
 
-/* GUARDAR SOLO LOS NIVELES CADA 10 MINUTOS */
+/* GUARDAR HISTÓRICO DE NIVELES */
 function guardarHistorico() {
   if (guardandoHistorico) return;
   guardandoHistorico = true;
@@ -170,7 +174,181 @@ function guardarHistorico() {
 
 setInterval(guardarHistorico, 600000);
 
-/* API LIBRE, SIN USUARIOS */
+/* ---------- AUTH USERS ---------- */
+
+function createToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+    },
+    JWT_SECRET,
+    { expiresIn: "12h" }
+  );
+}
+
+function verifyToken(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.replace("Bearer ", "").trim();
+
+  if (!token) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: "Token inválido" });
+  }
+}
+
+function onlyAdmin(req, res, next) {
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Solo admin puede hacer esto" });
+  }
+  next();
+}
+
+/* LOGIN */
+app.post("/api/auth/login", (req, res) => {
+  const { username, password } = req.body;
+
+  usersDb.get(
+    `SELECT * FROM users WHERE username = ?`,
+    [username],
+    (err, user) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (!user) {
+        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+      }
+
+      const valid = bcrypt.compareSync(password, user.password_hash);
+
+      if (!valid) {
+        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+      }
+
+      usersDb.run(
+        `INSERT INTO login_logs (username, role) VALUES (?, ?)`,
+        [user.username, user.role]
+      );
+
+      const token = createToken(user);
+
+      res.json({
+        ok: true,
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+        },
+      });
+    }
+  );
+});
+
+app.get("/api/auth/me", verifyToken, (req, res) => {
+  res.json({
+    ok: true,
+    user: req.user,
+  });
+});
+
+app.get("/api/users", verifyToken, (req, res) => {
+  usersDb.all(
+    `SELECT id, username, role, created_at FROM users ORDER BY id DESC`,
+    [],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+    }
+  );
+});
+
+app.post("/api/users", verifyToken, onlyAdmin, (req, res) => {
+  const { username, password, role } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: "Completa usuario y contraseña" });
+  }
+
+  const finalRole = role === "admin" ? "admin" : "viewer";
+  const hash = bcrypt.hashSync(password, 10);
+
+  usersDb.run(
+    `INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)`,
+    [username.trim(), hash, finalRole],
+    function (err) {
+      if (err) {
+        if (err.message.includes("UNIQUE")) {
+          return res.status(400).json({ error: "Ese usuario ya existe" });
+        }
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({
+        ok: true,
+        id: this.lastID,
+        message: "Usuario creado correctamente",
+      });
+    }
+  );
+});
+
+app.delete("/api/users/:id", verifyToken, onlyAdmin, (req, res) => {
+  const userId = Number(req.params.id);
+
+  usersDb.get(`SELECT * FROM users WHERE id = ?`, [userId], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    if (!row) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    if (row.username === "admin") {
+      return res.status(400).json({ error: "No se puede eliminar admin" });
+    }
+
+    usersDb.run(`DELETE FROM users WHERE id = ?`, [userId], function (deleteErr) {
+      if (deleteErr) {
+        return res.status(500).json({ error: deleteErr.message });
+      }
+
+      res.json({ ok: true, message: "Usuario eliminado" });
+    });
+  });
+});
+
+app.get("/api/login-logs", verifyToken, (req, res) => {
+  usersDb.all(
+    `SELECT id, username, role, datetime(login_time, 'localtime') AS login_time
+     FROM login_logs
+     ORDER BY id DESC
+     LIMIT 100`,
+    [],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+    }
+  );
+});
+
+/* ---------- RUTAS DE NIVELES LIBRES ---------- */
+/* ESTO ES LO IMPORTANTE PARA NO ROMPER MQTT/DASHBOARD */
+
 app.get("/api/niveles", (req, res) => {
   res.json({
     niveles,
