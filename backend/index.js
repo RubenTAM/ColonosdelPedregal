@@ -49,6 +49,15 @@ let bombasCaboviejo = {
   p71b: { man: 0, off: 0, auto: 1, running: 0 },
 };
 
+let plantaBotones = {
+  bombaA: 0,
+  bombaB: 0,
+  bombaC: 0,
+  trenA: 0,
+  trenB: 0,
+  trenC: 0,
+};
+
 let guardandoHistorico = false;
 
 /* TOPICS MQTT - NIVELES */
@@ -106,16 +115,28 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
 
+// TOPICS PLANTA ESTADOS 
+const topicToKeyPlantaBotones = {
+  Planta_Bool_2: "bombaA",
+  Planta_Bool_3: "bombaB",
+  Planta_Bool_4: "bombaC",
+  Planta_Bool_5: "trenA",
+  Planta_Bool_6: "trenB",
+  Planta_Bool_7: "trenC",
+};
+
 const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
 const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
+const topicsPlantaBotones = Object.keys(topicToKeyPlantaBotones);
 
 const topics = [
   ...topicsNivel,
   ...topicsPlc,
   ...topicsRuntime,
   ...topicsBombasCaboviejo,
+  ...topicsPlantaBotones,
 ];
 
 const client = mqtt.connect(MQTT_URL);
@@ -135,6 +156,19 @@ client.on("connect", () => {
 
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
+
+    /* BOTONES PLANTA */
+  if (topicToKeyPlantaBotones[topic]) {
+    const key = topicToKeyPlantaBotones[topic];
+
+    const valorNormalizado =
+      texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
+
+    plantaBotones[key] = valorNormalizado;
+
+    console.log(`Planta botón ${key}:`, valorNormalizado);
+    return;
+  }
 
     /* BOTONES Y ESTADO DE BOMBAS CABO VIEJO */
   if (topicToKeyBombasCaboviejo[topic]) {
@@ -403,7 +437,8 @@ app.get("/api/niveles", (req, res) => {
   res.json({
     niveles,
     plcStatus,
-    bombasCaboviejo
+    bombasCaboviejo,
+    plantaBotones,
   });
 });
 

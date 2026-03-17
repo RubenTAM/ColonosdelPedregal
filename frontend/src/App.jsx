@@ -61,6 +61,15 @@ export default function App() {
     p71b: { man: 0, off: 0, auto: 1, running: 0 },
   });
 
+   const [plantaBotones, setPlantaBotones] = useState({
+    bombaA: 0,
+    bombaB: 0,
+    bombaC: 0,
+    trenA: 0,
+    trenB: 0,
+    trenC: 0,
+  });
+
   const [users, setUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [userMessage, setUserMessage] = useState("");
@@ -116,6 +125,7 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
+          setPlantaBotones(data.setPlantaBotones || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
     };
@@ -390,7 +400,7 @@ export default function App() {
         {activeView === "dashboard" && (
           <section className="content">
             <div className="cards-grid">
-              <PlantaCard level={niveles.planta} plc={plcStatus.planta} />
+              <PlantaCard level={niveles.planta} plc={plcStatus.planta} plantaBotones={plantaBotones}/>
 
               <CaboViejoCard
                 level={niveles.cabo_viejo}
@@ -711,7 +721,7 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
   );
 }
 
-function PlantaCard({ level, plc }) {
+function PlantaCard({ level, plc, plantaBotones }) {
   const [noDisponible, setNoDisponible] = useState(false);
 
   return (
@@ -739,16 +749,24 @@ function PlantaCard({ level, plc }) {
         <div className="control-section-card__title">Control de Trenes</div>
 
         <div className="button-grid button-grid--3">
-          <button className="action-btn" disabled={noDisponible}>
+          <button
+            className={`action-btn ${Number(plantaBotones.trenA) === 1 ? "action-btn--active" : ""}`}
+            disabled={noDisponible}
+          >
             TREN A
           </button>
+
           <button
-            className="action-btn action-btn--active"
+            className={`action-btn ${Number(plantaBotones.trenB) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             TREN B
           </button>
-          <button className="action-btn" disabled={noDisponible}>
+
+          <button
+            className={`action-btn ${Number(plantaBotones.trenC) === 1 ? "action-btn--active" : ""}`}
+            disabled={noDisponible}
+          >
             TREN C
           </button>
         </div>
@@ -758,14 +776,22 @@ function PlantaCard({ level, plc }) {
         <div className="control-section-card__title">Control de Bombas</div>
 
         <div className="button-grid button-grid--3">
-          <button className="action-btn" disabled={noDisponible}>
+          <button
+            className={`action-btn ${Number(plantaBotones.bombaA) === 1 ? "action-btn--active" : ""}`}
+            disabled={noDisponible}
+          >
             BOMBA A
           </button>
-          <button className="action-btn" disabled={noDisponible}>
+
+          <button
+            className={`action-btn ${Number(plantaBotones.bombaB) === 1 ? "action-btn--active" : ""}`}
+            disabled={noDisponible}
+          >
             BOMBA B
           </button>
+
           <button
-            className="action-btn action-btn--active"
+            className={`action-btn ${Number(plantaBotones.bombaC) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             BOMBA C
