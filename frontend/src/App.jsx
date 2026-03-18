@@ -108,48 +108,6 @@ export default function App() {
 
   // ZONA DE NIVELES ESCALAMIENTOS
 
-  const nivelesEscalados = {
-    planta: escalarNivel(
-      niveles.planta,
-      levelConfig.planta.min,
-      levelConfig.planta.max
-    ),
-    cabo_viejo: escalarNivel(
-      niveles.cabo_viejo,
-      levelConfig.cabo_viejo.min,
-      levelConfig.cabo_viejo.max
-    ),
-    falcone: escalarNivel(
-      niveles.falcone,
-      levelConfig.falcone.min,
-      levelConfig.falcone.max
-    ),
-    cinco: escalarNivel(
-      niveles.cinco,
-      levelConfig.cinco.min,
-      levelConfig.cinco.max
-    ),
-    seis: escalarNivel(
-      niveles.seis,
-      levelConfig.seis.min,
-      levelConfig.seis.max
-    ),
-    marilu: escalarNivel(
-      niveles.marilu,
-      levelConfig.marilu.min,
-      levelConfig.marilu.max
-    ),
-    pacifico: escalarNivel(
-      niveles.pacifico,
-      levelConfig.pacifico.min,
-      levelConfig.pacifico.max
-    ),
-    cuadrada: escalarNivel(
-      niveles.cuadrada,
-      levelConfig.cuadrada.min,
-      levelConfig.cuadrada.max
-    ),
-  };
 
   const [levelConfig, setLevelConfig] = useState(() => {
     const saved = localStorage.getItem("level_config");
@@ -268,6 +226,49 @@ export default function App() {
       .then((res) => res.json())
       .then((data) => setLoginLogs(Array.isArray(data) ? data : []));
   }, [authUser, activeView]);
+
+    const nivelesEscalados = {
+      planta: escalarNivel(
+        niveles.planta,
+        levelConfig.planta.min,
+        levelConfig.planta.max
+      ),
+      cabo_viejo: escalarNivel(
+        niveles.cabo_viejo,
+        levelConfig.cabo_viejo.min,
+        levelConfig.cabo_viejo.max
+      ),
+      falcone: escalarNivel(
+        niveles.falcone,
+        levelConfig.falcone.min,
+        levelConfig.falcone.max
+      ),
+      cinco: escalarNivel(
+        niveles.cinco,
+        levelConfig.cinco.min,
+        levelConfig.cinco.max
+      ),
+      seis: escalarNivel(
+        niveles.seis,
+        levelConfig.seis.min,
+        levelConfig.seis.max
+      ),
+      marilu: escalarNivel(
+        niveles.marilu,
+        levelConfig.marilu.min,
+        levelConfig.marilu.max
+      ),
+      pacifico: escalarNivel(
+        niveles.pacifico,
+        levelConfig.pacifico.min,
+        levelConfig.pacifico.max
+      ),
+      cuadrada: escalarNivel(
+        niveles.cuadrada,
+        levelConfig.cuadrada.min,
+        levelConfig.cuadrada.max
+      ),
+  };
 
     const widgetsInferiores = [
     { title: "Cinco", tankKey: "cinco", level: nivelesEscalados.cinco, plc: plcStatus.cinco },
