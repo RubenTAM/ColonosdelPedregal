@@ -1,31 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const DEFAULT_LEVEL_CONFIG= {
-  planta: {min:0,max:140},
-  caboviejo: {min:0,max:140},
-  falcone: {min:0,max:140},
-  cinco:{min:0,max:140},
-  seis: {min:0,max:140},
-  marilu: {min:0,max:140},
-  pacifico: {min:0,max:140},
-  cuadrada: {min:0,max:140},
+const DEFAULT_LEVEL_CONFIG = {
+  planta: { min: 0, max: 140 },
+  cabo_viejo: { min: 0, max: 140 },
+  falcone: { min: 0, max: 140 },
+  cinco: { min: 0, max: 140 },
+  seis: { min: 0, max: 140 },
+  marilu: { min: 0, max: 140 },
+  pacifico: { min: 0, max: 140 },
+  cuadrada: { min: 0, max: 140 },
 };
 
-// FUNCION DE ESCALAMIENTO DE NIVEL DEL PLC
-
-function escalarNivel(valor,min,max) {
-  const v = Number(valor)
+function escalarNivel(valor, min, max) {
+  const v = Number(valor);
   const minNum = Number(min);
   const maxNum = Number(max);
-  if (Number.isNaN(v) ||Number.isNaN(minNum) || Number.isNaN(maxNum)) return 0;
+
+  if (Number.isNaN(v) || Number.isNaN(minNum) || Number.isNaN(maxNum)) return 0;
   if (maxNum === minNum) return 0;
 
-  const porcentaje = ((v-minNum) / (maxNum - minNum)) * 100;
+  const porcentaje = ((v - minNum) / (maxNum - minNum)) * 100;
   return Math.max(0, Math.min(100, porcentaje));
 }
-
-// FIN
 
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
@@ -41,7 +38,6 @@ function apiFetch(url, options = {}) {
 }
 
 export default function App() {
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -81,14 +77,14 @@ export default function App() {
     cuadrada: 0,
   });
 
-   const [bombasCaboviejo, setBombasCaboviejo] = useState({
+  const [bombasCaboviejo, setBombasCaboviejo] = useState({
     p70a: { man: 0, off: 0, auto: 1, running: 0 },
     p70b: { man: 0, off: 0, auto: 1, running: 0 },
     p71a: { man: 0, off: 0, auto: 1, running: 0 },
     p71b: { man: 0, off: 0, auto: 1, running: 0 },
   });
 
-   const [plantaBotones, setPlantaBotones] = useState({
+  const [plantaBotones, setPlantaBotones] = useState({
     bombaA: 0,
     bombaB: 0,
     bombaC: 0,
@@ -106,9 +102,6 @@ export default function App() {
     role: "viewer",
   });
 
-  // ZONA DE NIVELES ESCALAMIENTOS
-
-
   const [levelConfig, setLevelConfig] = useState(() => {
     const saved = localStorage.getItem("level_config");
     return saved ? JSON.parse(saved) : DEFAULT_LEVEL_CONFIG;
@@ -123,7 +116,7 @@ export default function App() {
   });
 
   const openConfigModal = (tankKey) => {
-  const current = levelConfig[tankKey] || { min: 0, max: 140 };
+    const current = levelConfig[tankKey] || { min: 0, max: 140 };
 
     setSelectedTank(tankKey);
     setConfigForm({
@@ -152,8 +145,6 @@ export default function App() {
 
     closeConfigModal();
   };
-
-  // FIN ZONA DE NIVELES ESCALAMIENTO
 
   useEffect(() => {
     localStorage.setItem("level_config", JSON.stringify(levelConfig));
@@ -227,55 +218,80 @@ export default function App() {
       .then((data) => setLoginLogs(Array.isArray(data) ? data : []));
   }, [authUser, activeView]);
 
-    const nivelesEscalados = {
-      planta: escalarNivel(
-        niveles.planta,
-        levelConfig.planta.min,
-        levelConfig.planta.max
-      ),
-      cabo_viejo: escalarNivel(
-        niveles.cabo_viejo,
-        levelConfig.cabo_viejo.min,
-        levelConfig.cabo_viejo.max
-      ),
-      falcone: escalarNivel(
-        niveles.falcone,
-        levelConfig.falcone.min,
-        levelConfig.falcone.max
-      ),
-      cinco: escalarNivel(
-        niveles.cinco,
-        levelConfig.cinco.min,
-        levelConfig.cinco.max
-      ),
-      seis: escalarNivel(
-        niveles.seis,
-        levelConfig.seis.min,
-        levelConfig.seis.max
-      ),
-      marilu: escalarNivel(
-        niveles.marilu,
-        levelConfig.marilu.min,
-        levelConfig.marilu.max
-      ),
-      pacifico: escalarNivel(
-        niveles.pacifico,
-        levelConfig.pacifico.min,
-        levelConfig.pacifico.max
-      ),
-      cuadrada: escalarNivel(
-        niveles.cuadrada,
-        levelConfig.cuadrada.min,
-        levelConfig.cuadrada.max
-      ),
+  const nivelesEscalados = {
+    planta: escalarNivel(
+      niveles.planta,
+      levelConfig.planta.min,
+      levelConfig.planta.max
+    ),
+    cabo_viejo: escalarNivel(
+      niveles.cabo_viejo,
+      levelConfig.cabo_viejo.min,
+      levelConfig.cabo_viejo.max
+    ),
+    falcone: escalarNivel(
+      niveles.falcone,
+      levelConfig.falcone.min,
+      levelConfig.falcone.max
+    ),
+    cinco: escalarNivel(
+      niveles.cinco,
+      levelConfig.cinco.min,
+      levelConfig.cinco.max
+    ),
+    seis: escalarNivel(
+      niveles.seis,
+      levelConfig.seis.min,
+      levelConfig.seis.max
+    ),
+    marilu: escalarNivel(
+      niveles.marilu,
+      levelConfig.marilu.min,
+      levelConfig.marilu.max
+    ),
+    pacifico: escalarNivel(
+      niveles.pacifico,
+      levelConfig.pacifico.min,
+      levelConfig.pacifico.max
+    ),
+    cuadrada: escalarNivel(
+      niveles.cuadrada,
+      levelConfig.cuadrada.min,
+      levelConfig.cuadrada.max
+    ),
   };
 
-    const widgetsInferiores = [
-    { title: "Cinco", tankKey: "cinco", level: nivelesEscalados.cinco, plc: plcStatus.cinco },
-    { title: "Seis", tankKey: "seis", level: nivelesEscalados.seis, plc: plcStatus.seis },
-    { title: "Marilu", tankKey: "marilu", level: nivelesEscalados.marilu, plc: plcStatus.marilu },
-    { title: "Pacifico", tankKey: "pacifico", level: nivelesEscalados.pacifico, plc: plcStatus.pacifico },
-    { title: "Cuadrada", tankKey: "cuadrada", level: nivelesEscalados.cuadrada, plc: plcStatus.cuadrada },
+  const widgetsInferiores = [
+    {
+      title: "Cinco",
+      tankKey: "cinco",
+      level: nivelesEscalados.cinco,
+      plc: plcStatus.cinco,
+    },
+    {
+      title: "Seis",
+      tankKey: "seis",
+      level: nivelesEscalados.seis,
+      plc: plcStatus.seis,
+    },
+    {
+      title: "Marilu",
+      tankKey: "marilu",
+      level: nivelesEscalados.marilu,
+      plc: plcStatus.marilu,
+    },
+    {
+      title: "Pacifico",
+      tankKey: "pacifico",
+      level: nivelesEscalados.pacifico,
+      plc: plcStatus.pacifico,
+    },
+    {
+      title: "Cuadrada",
+      tankKey: "cuadrada",
+      level: nivelesEscalados.cuadrada,
+      plc: plcStatus.cuadrada,
+    },
     { title: "", level: null, plc: null, empty: true },
   ];
 
@@ -470,7 +486,9 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="sidebar__footer">© 2025 Colonos del Pedregal v2.0.0</div>
+        <div className="sidebar__footer">
+          ©️ 2025 Colonos del Pedregal v2.0.0
+        </div>
       </aside>
 
       <main className={`main ${sidebarOpen && !isMobile ? "" : "main--full"}`}>
@@ -512,7 +530,8 @@ export default function App() {
 
           <div className="topbar__user topbar__user--auth">
             <span>
-              BIENVENIDO {authUser.username.toUpperCase()} ({authUser.role.toUpperCase()})
+              BIENVENIDO {authUser.username.toUpperCase()} (
+              {authUser.role.toUpperCase()})
             </span>
             <button className="logout-btn" onClick={handleLogout}>
               Salir
@@ -523,7 +542,12 @@ export default function App() {
         {activeView === "dashboard" && (
           <section className="content">
             <div className="cards-grid">
-              <PlantaCard level={nivelesEscalados.planta} plc={plcStatus.planta} plantaBotones={plantaBotones} onOpenConfig={() => openConfigModal("planta")}/>
+              <PlantaCard
+                level={nivelesEscalados.planta}
+                plc={plcStatus.planta}
+                plantaBotones={plantaBotones}
+                onOpenConfig={() => openConfigModal("planta")}
+              />
 
               <CaboViejoCard
                 level={nivelesEscalados.cabo_viejo}
@@ -536,7 +560,11 @@ export default function App() {
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
               />
 
-              <FalconeCard level={nivelesEscalados.falcone} plc={plcStatus.falcone} onOpenConfig={() => openConfigModal("falcone")} />
+              <FalconeCard
+                level={nivelesEscalados.falcone}
+                plc={plcStatus.falcone}
+                onOpenConfig={() => openConfigModal("falcone")}
+              />
             </div>
 
             <div className="lower-section">
@@ -719,9 +747,15 @@ export default function App() {
                     </select>
                   </div>
 
-                  {userMessage && <div className="users-message">{userMessage}</div>}
+                  {userMessage && (
+                    <div className="users-message">{userMessage}</div>
+                  )}
 
-                  <button className="login-btn" type="submit" disabled={!isAdmin}>
+                  <button
+                    className="login-btn"
+                    type="submit"
+                    disabled={!isAdmin}
+                  >
                     Crear usuario
                   </button>
                 </form>
@@ -780,7 +814,9 @@ export default function App() {
                           <p>{log.username} inició sesión</p>
                         </div>
 
-                        <span className="historico-date">{log.login_time}</span>
+                        <span className="historico-date">
+                          {log.login_time}
+                        </span>
                       </div>
                     ))
                   )}
@@ -792,22 +828,16 @@ export default function App() {
       </main>
 
       {configModalOpen && selectedTank && (
-              <LevelConfigModal
-                tankKey={selectedTank}
-                form={configForm}
-                setForm={setConfigForm}
-                onClose={closeConfigModal}
-                onSave={saveTankConfig}
-              />
+        <LevelConfigModal
+          tankKey={selectedTank}
+          form={configForm}
+          setForm={setConfigForm}
+          onClose={closeConfigModal}
+          onSave={saveTankConfig}
+        />
       )}
-
     </div>
   );
-
-// PRUEBAAAA
-
-    
-
 }
 
 function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
@@ -891,21 +921,27 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
         <div className="button-grid button-grid--3">
           <button
-            className={`action-btn ${Number(plantaBotones?.trenA) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.trenA) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             TREN A
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones?.trenB) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.trenB) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             TREN B
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones?.trenC) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.trenC) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             TREN C
@@ -918,21 +954,27 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
         <div className="button-grid button-grid--3">
           <button
-            className={`action-btn ${Number(plantaBotones?.bombaA) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.bombaA) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             BOMBA A
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones?.bombaB) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.bombaB) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             BOMBA B
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones?.bombaC) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${
+              Number(plantaBotones?.bombaC) === 1 ? "action-btn--active" : ""
+            }`}
             disabled={noDisponible}
           >
             BOMBA C
@@ -953,7 +995,16 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
   );
 }
 
-function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b, bombasCaboviejo, onOpenConfig }) {
+function CaboViejoCard({
+  level,
+  plc,
+  p70a,
+  p70b,
+  p71a,
+  p71b,
+  bombasCaboviejo,
+  onOpenConfig,
+}) {
   return (
     <article className="dashboard-card">
       <CardHeader title="CABO VIEJO" onOpenConfig={onOpenConfig} />
@@ -1131,7 +1182,9 @@ function CaboViejoChart() {
   }
 
   if (!chartData.length) {
-    return <div className="chart-empty">No hay datos de Cabo Viejo todavía.</div>;
+    return (
+      <div className="chart-empty">No hay datos de Cabo Viejo todavía.</div>
+    );
   }
 
   const width = 900;
@@ -1233,6 +1286,7 @@ function CaboViejoChart() {
       </div>
     </div>
   );
+}
 
 function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
   const niceName = {
@@ -1294,6 +1348,4 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
       </div>
     </>
   );
-}
-
 }
