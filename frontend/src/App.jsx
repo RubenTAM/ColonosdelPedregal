@@ -1,6 +1,32 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
+const DEFAULT_LEVEL_CONFIG= {
+  planta: {min:0,max:140},
+  caboviejo: {min:0,max:140},
+  falcone: {min:0,max:140},
+  cinco:{min:0,max:140},
+  seis: {min:0,max:140},
+  marilu: {min:0,max:140},
+  pacifico: {min:0,max:140},
+  cuadrada: {min:0,max:140},
+};
+
+// FUNCION DE ESCALAMIENTO DE NIVEL DEL PLC
+
+function escalarNivel(valor,min,max) {
+  const v = Number(valor)
+  const minNum = Number(min);
+  const maxNum = Number(max);
+  if (Number.isNaN(v) ||Number.isNaN(minNum) || Number.isNaN(maxNum)) return 0;
+  if (maxNum === minNum) return 0;
+
+  const porcentaje = ((v-minNum) / (maxNum - minNum)) * 100;
+  return Math.max(0, Math.min(100, porcentaje));
+}
+
+// FIN
+
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
 
@@ -15,6 +41,7 @@ function apiFetch(url, options = {}) {
 }
 
 export default function App() {
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -78,6 +105,101 @@ export default function App() {
     password: "",
     role: "viewer",
   });
+
+  // ZONA DE NIVELES ESCALAMIENTOS
+
+  const nivelesEscalados = {
+    planta: escalarNivel(
+      niveles.planta,
+      levelConfig.planta.min,
+      levelConfig.planta.max
+    ),
+    cabo_viejo: escalarNivel(
+      niveles.cabo_viejo,
+      levelConfig.cabo_viejo.min,
+      levelConfig.cabo_viejo.max
+    ),
+    falcone: escalarNivel(
+      niveles.falcone,
+      levelConfig.falcone.min,
+      levelConfig.falcone.max
+    ),
+    cinco: escalarNivel(
+      niveles.cinco,
+      levelConfig.cinco.min,
+      levelConfig.cinco.max
+    ),
+    seis: escalarNivel(
+      niveles.seis,
+      levelConfig.seis.min,
+      levelConfig.seis.max
+    ),
+    marilu: escalarNivel(
+      niveles.marilu,
+      levelConfig.marilu.min,
+      levelConfig.marilu.max
+    ),
+    pacifico: escalarNivel(
+      niveles.pacifico,
+      levelConfig.pacifico.min,
+      levelConfig.pacifico.max
+    ),
+    cuadrada: escalarNivel(
+      niveles.cuadrada,
+      levelConfig.cuadrada.min,
+      levelConfig.cuadrada.max
+    ),
+  };
+
+  const [levelConfig, setLevelConfig] = useState(() => {
+    const saved = localStorage.getItem("level_config");
+    return saved ? JSON.parse(saved) : DEFAULT_LEVEL_CONFIG;
+  });
+
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [selectedTank, setSelectedTank] = useState(null);
+
+  const [configForm, setConfigForm] = useState({
+    min: "",
+    max: "",
+  });
+
+  const openConfigModal = (tankKey) => {
+  const current = levelConfig[tankKey] || { min: 0, max: 140 };
+
+    setSelectedTank(tankKey);
+    setConfigForm({
+      min: String(current.min),
+      max: String(current.max),
+    });
+    setConfigModalOpen(true);
+  };
+
+  const closeConfigModal = () => {
+    setConfigModalOpen(false);
+    setSelectedTank(null);
+    setConfigForm({ min: "", max: "" });
+  };
+
+  const saveTankConfig = () => {
+    if (!selectedTank) return;
+
+    setLevelConfig((prev) => ({
+      ...prev,
+      [selectedTank]: {
+        min: Number(configForm.min),
+        max: Number(configForm.max),
+      },
+    }));
+
+    closeConfigModal();
+  };
+
+  // FIN ZONA DE NIVELES ESCALAMIENTO
+
+  useEffect(() => {
+    localStorage.setItem("level_config", JSON.stringify(levelConfig));
+  }, [levelConfig]);
 
   useEffect(() => {
     const onResize = () => {
@@ -147,12 +269,12 @@ export default function App() {
       .then((data) => setLoginLogs(Array.isArray(data) ? data : []));
   }, [authUser, activeView]);
 
-  const widgetsInferiores = [
-    { title: "Cinco", level: niveles.cinco, plc: plcStatus.cinco },
-    { title: "Seis", level: niveles.seis, plc: plcStatus.seis },
-    { title: "Marilu", level: niveles.marilu, plc: plcStatus.marilu },
-    { title: "Pacifico", level: niveles.pacifico, plc: plcStatus.pacifico },
-    { title: "Cuadrada", level: niveles.cuadrada, plc: plcStatus.cuadrada },
+    const widgetsInferiores = [
+    { title: "Cinco", tankKey: "cinco", level: nivelesEscalados.cinco, plc: plcStatus.cinco },
+    { title: "Seis", tankKey: "seis", level: nivelesEscalados.seis, plc: plcStatus.seis },
+    { title: "Marilu", tankKey: "marilu", level: nivelesEscalados.marilu, plc: plcStatus.marilu },
+    { title: "Pacifico", tankKey: "pacifico", level: nivelesEscalados.pacifico, plc: plcStatus.pacifico },
+    { title: "Cuadrada", tankKey: "cuadrada", level: nivelesEscalados.cuadrada, plc: plcStatus.cuadrada },
     { title: "", level: null, plc: null, empty: true },
   ];
 
@@ -400,19 +522,20 @@ export default function App() {
         {activeView === "dashboard" && (
           <section className="content">
             <div className="cards-grid">
-              <PlantaCard level={niveles.planta} plc={plcStatus.planta} plantaBotones={plantaBotones}/>
+              <PlantaCard level={nivelesEscalados.planta} plc={plcStatus.planta} plantaBotones={plantaBotones} onOpenConfig={() => openConfigModal("planta")}/>
 
               <CaboViejoCard
-                level={niveles.cabo_viejo}
+                level={nivelesEscalados.cabo_viejo}
                 plc={plcStatus.cabo_viejo}
                 p70a={niveles.runtime_p70a}
                 p70b={niveles.runtime_p70b}
                 p71a={niveles.runtime_p71a}
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
+                onOpenConfig={() => openConfigModal("cabo_viejo")}
               />
 
-              <FalconeCard level={niveles.falcone} plc={plcStatus.falcone} />
+              <FalconeCard level={nivelesEscalados.falcone} plc={plcStatus.falcone} onOpenConfig={() => openConfigModal("falcone")} />
             </div>
 
             <div className="lower-section">
@@ -427,6 +550,7 @@ export default function App() {
                         title={item.title}
                         level={item.level}
                         plc={item.plc}
+                        onOpenConfig={() => openConfigModal(item.tankKey)}
                       />
                     )
                   )}
@@ -665,8 +789,24 @@ export default function App() {
           </section>
         )}
       </main>
+
+      {configModalOpen && selectedTank && (
+              <LevelConfigModal
+                tankKey={selectedTank}
+                form={configForm}
+                setForm={setConfigForm}
+                onClose={closeConfigModal}
+                onSave={saveTankConfig}
+              />
+      )}
+
     </div>
   );
+
+// PRUEBAAAA
+
+    
+
 }
 
 function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
@@ -721,7 +861,7 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
   );
 }
 
-function PlantaCard({ level, plc, plantaBotones }) {
+function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
   const [noDisponible, setNoDisponible] = useState(false);
 
   return (
@@ -742,7 +882,7 @@ function PlantaCard({ level, plc, plantaBotones }) {
         <div className="card-disabled-banner">NO DISPONIBLE</div>
       )}
 
-      <CardHeader title="PLANTA" />
+      <CardHeader title="PLANTA" onOpenConfig={onOpenConfig} />
       <TankGauge level={level} />
 
       <div className="control-section-card">
@@ -750,21 +890,21 @@ function PlantaCard({ level, plc, plantaBotones }) {
 
         <div className="button-grid button-grid--3">
           <button
-            className={`action-btn ${Number(plantaBotones.trenA) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.trenA) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             TREN A
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones.trenB) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.trenB) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             TREN B
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones.trenC) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.trenC) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             TREN C
@@ -777,21 +917,21 @@ function PlantaCard({ level, plc, plantaBotones }) {
 
         <div className="button-grid button-grid--3">
           <button
-            className={`action-btn ${Number(plantaBotones.bombaA) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.bombaA) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             BOMBA A
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones.bombaB) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.bombaB) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             BOMBA B
           </button>
 
           <button
-            className={`action-btn ${Number(plantaBotones.bombaC) === 1 ? "action-btn--active" : ""}`}
+            className={`action-btn ${Number(plantaBotones?.bombaC) === 1 ? "action-btn--active" : ""}`}
             disabled={noDisponible}
           >
             BOMBA C
@@ -812,33 +952,17 @@ function PlantaCard({ level, plc, plantaBotones }) {
   );
 }
 
-function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b, bombasCaboviejo }) {
+function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b, bombasCaboviejo, onOpenConfig }) {
   return (
     <article className="dashboard-card">
-      <CardHeader title="CABO VIEJO" />
+      <CardHeader title="CABO VIEJO" onOpenConfig={onOpenConfig} />
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
-        <PumpBox
-          name="P70A"
-          runtime={p70a}
-          modes={bombasCaboviejo.p70a}
-        />
-        <PumpBox
-          name="P70B"
-          runtime={p70b}
-          modes={bombasCaboviejo.p70b}
-        />
-        <PumpBox
-          name="P71A"
-          runtime={p71a}
-          modes={bombasCaboviejo.p71a}
-        />
-        <PumpBox
-          name="P71B"
-          runtime={p71b}
-          modes={bombasCaboviejo.p71b}
-        />
+        <PumpBox name="P70A" runtime={p70a} modes={bombasCaboviejo.p70a} />
+        <PumpBox name="P70B" runtime={p70b} modes={bombasCaboviejo.p70b} />
+        <PumpBox name="P71A" runtime={p71a} modes={bombasCaboviejo.p71a} />
+        <PumpBox name="P71B" runtime={p71b} modes={bombasCaboviejo.p71b} />
       </div>
 
       <div className="footer-pills">
@@ -848,10 +972,10 @@ function CaboViejoCard({ level, plc, p70a, p70b, p71a, p71b, bombasCaboviejo }) 
   );
 }
 
-function FalconeCard({ level, plc }) {
+function FalconeCard({ level, plc, onOpenConfig }) {
   return (
     <article className="dashboard-card">
-      <CardHeader title="FALCONE" />
+      <CardHeader title="FALCONE" onOpenConfig={onOpenConfig} />
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--2">
@@ -866,13 +990,16 @@ function FalconeCard({ level, plc }) {
   );
 }
 
-function MiniTankCard({ title, level, plc }) {
+function MiniTankCard({ title, level, plc, onOpenConfig }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
 
   return (
     <article className="mini-card">
-      <div className="mini-card__header">
+      <div className="mini-card__header mini-card__header--with-actions">
         <h4>{title}</h4>
+        <button className="mini-card__menu" onClick={onOpenConfig}>
+          ⋮
+        </button>
       </div>
 
       <div className="mini-gauge-wrap">
@@ -884,7 +1011,9 @@ function MiniTankCard({ title, level, plc }) {
             />
           </div>
 
-          <div className="mini-gauge__value">{safeLevel}%</div>
+          <div className="mini-gauge__value">
+            {Number.isInteger(safeLevel) ? safeLevel : safeLevel.toFixed(2)}%
+          </div>
         </div>
       </div>
 
@@ -895,7 +1024,7 @@ function MiniTankCard({ title, level, plc }) {
   );
 }
 
-function CardHeader({ title }) {
+function CardHeader({ title, onOpenConfig }) {
   return (
     <div className="card-head">
       <div className="card-head__center">
@@ -903,7 +1032,9 @@ function CardHeader({ title }) {
         <span className="status-dot" />
       </div>
 
-      <button className="more-btn">⋮</button>
+      <button className="more-btn" onClick={onOpenConfig}>
+        ⋮
+      </button>
     </div>
   );
 }
@@ -1101,4 +1232,67 @@ function CaboViejoChart() {
       </div>
     </div>
   );
+
+function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
+  const niceName = {
+    planta: "PLANTA",
+    cabo_viejo: "CABO VIEJO",
+    falcone: "FALCONE",
+    cinco: "CINCO",
+    seis: "SEIS",
+    marilu: "MARILU",
+    pacifico: "PACIFICO",
+    cuadrada: "CUADRADA",
+  };
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={onClose} />
+
+      <div className="level-modal">
+        <div className="level-modal__header">
+          <h3>Configuración de niveles - {niceName[tankKey]}</h3>
+          <button className="level-modal__close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="level-modal__body">
+          <div className="login-field">
+            <label>MÍNIMA</label>
+            <input
+              type="number"
+              value={form.min}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, min: e.target.value }))
+              }
+              placeholder="0"
+            />
+          </div>
+
+          <div className="login-field">
+            <label>MÁXIMA</label>
+            <input
+              type="number"
+              value={form.max}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, max: e.target.value }))
+              }
+              placeholder="140"
+            />
+          </div>
+
+          <button className="level-modal__save" onClick={onSave}>
+            🔒 GUARDAR
+          </button>
+
+          <button className="level-modal__bypass">
+            BYPASS {niceName[tankKey]}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 }

@@ -1802,3 +1802,101 @@ button {
 .users-log-body {
   min-height: 320px;
 }
+
+
+/* POP -UP DISENO  */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 35, 0.24);
+  backdrop-filter: blur(5px);
+  z-index: 110;
+}
+
+.level-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(92vw, 420px);
+  transform: translate(-50%, -50%);
+  background: linear-gradient(180deg, #ffffff 0%, #f6f9fd 100%);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(43, 63, 99, 0.28);
+  border: 1px solid #d8e0eb;
+  z-index: 120;
+  overflow: hidden;
+}
+
+.level-modal__header {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  background: linear-gradient(180deg, #2049d8 0%, #1d43c4 100%);
+  color: white;
+}
+
+.level-modal__header h3 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.level-modal__close {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.level-modal__body {
+  padding: 18px;
+}
+
+.level-modal__save {
+  width: 100%;
+  height: 48px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #49db4f 0%, #27c73d 100%);
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.level-modal__bypass {
+  width: 100%;
+  height: 44px;
+  margin-top: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #334d81 0%, #2d4473 100%);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mini-card__header--with-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mini-card__menu {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(240, 243, 247, 0.95);
+  color: #5e6c81;
+  cursor: pointer;
+}
