@@ -1834,14 +1834,14 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 0 18px;
-  background: linear-gradient(180deg, #2049d8 0%, #1d43c4 100%);
+  background: linear-gradient(180deg, #2d4473 0%, #2d4473 100%);
   color: white;
 }
 
 .level-modal__header h3 {
   margin: 0;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .level-modal__close {
@@ -1865,7 +1865,7 @@ button {
   margin-top: 8px;
   border: none;
   border-radius: 12px;
-  background: linear-gradient(180deg, #49db4f 0%, #27c73d 100%);
+  background: linear-gradient(180deg, #4ea45a 0%, #4ea45a 100%);
   color: white;
   font-size: 16px;
   font-weight: 800;

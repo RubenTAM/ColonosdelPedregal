@@ -1338,12 +1338,12 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
           </div>
 
           <button className="level-modal__save" onClick={onSave}>
-            🔒 GUARDAR
+            GUARDAR
           </button>
 
-          <button className="level-modal__bypass">
+          {/* <button className="level-modal__bypass">
             BYPASS {niceName[tankKey]}
-          </button>
+          </button> */}
         </div>
       </div>
     </>
