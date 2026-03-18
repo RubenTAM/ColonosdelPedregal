@@ -1300,6 +1300,32 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
     cuadrada: "CUADRADA",
   };
 
+  const renderBypassButtons = () => {
+    if (tankKey === "planta") {
+      return (
+        <button className="level-modal__bypass">
+          BYPASS PLANTA
+        </button>
+      );
+    }
+
+    if (tankKey === "cabo_viejo") {
+      return (
+        <div className="level-modal__bypass-group">
+          <button className="level-modal__bypass">
+            BYPASS FALCONE
+          </button>
+
+          <button className="level-modal__bypass">
+            BYPASS CUADRADA
+          </button>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <>
       <div className="modal-overlay" onClick={onClose} />
@@ -1338,12 +1364,10 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
           </div>
 
           <button className="level-modal__save" onClick={onSave}>
-            GUARDAR
+            🔒 GUARDAR
           </button>
 
-          {/* <button className="level-modal__bypass">
-            BYPASS {niceName[tankKey]}
-          </button> */}
+          {renderBypassButtons()}
         </div>
       </div>
     </>
