@@ -1364,7 +1364,7 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
           </div>
 
           <button className="level-modal__save" onClick={onSave}>
-            🔒 GUARDAR
+            GUARDAR
           </button>
 
           {renderBypassButtons()}
