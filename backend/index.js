@@ -12,7 +12,8 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = 3001;
-const MQTT_URL = "mqtt://18.216.64.219:1883";
+// Puerto Real: 18.216.64.219
+const MQTT_URL = "mqtt://64.23.155.31:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 
 /* ESTADO EN MEMORIA */
@@ -114,6 +115,24 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
+
+const topicToKeyCaboviejoFeedback = {
+  Caboviejo_Bool_18:{bomba: "p70a", campo: "ack_man" },
+  Caboviejo_Bool_19:{bomba: "p70a", campo: "ack_off" },
+  Caboviejo_Bool_20:{bomba: "p70a", campo: "ack_auto" },
+
+  Caboviejo_Bool_21:{bomba: "p70b", campo: "ack_man" },
+  Caboviejo_Bool_22:{bomba: "p70b", campo: "ack_off" },
+  Caboviejo_Bool_23:{bomba: "p70b", campo: "ack_auto" },
+
+  Caboviejo_Bool_24:{bomba: "p71a", campo: "ack_man" },
+  Caboviejo_Bool_25:{bomba: "p71a", campo: "ack_off" },
+  Caboviejo_Bool_26:{bomba: "p71a", campo: "ack_auto" },
+
+  Caboviejo_Bool_27:{bomba: "p71b", campo: "ack_man" },
+  Caboviejo_Bool_28:{bomba: "p71b", campo: "ack_off" },
+  Caboviejo_Bool_29:{bomba: "p71b", campo: "ack_auto" }, 
+}
 
 // TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {

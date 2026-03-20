@@ -38,6 +38,10 @@ function apiFetch(url, options = {}) {
 }
 
 export default function App() {
+
+  const [cvCommandModalOpen, setCvCommandModalOpen] = useState(false);
+  const [cvPendingCommand, setCvPendingCommand] = useState(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -49,6 +53,7 @@ export default function App() {
     username: "",
     password: "",
   });
+
   const [loginError, setLoginError] = useState("");
 
   const [niveles, setNiveles] = useState({
@@ -114,6 +119,30 @@ export default function App() {
     min: "",
     max: "",
   });
+
+  // FUNCIONAMIENTO DE CONFIRMACION DE BOTONES DE MODO OPERACION BOMBAS 
+
+  const openCvCommandModal = (bomba, modo) => {
+  setCvPendingCommand({ bomba, modo });
+  setCvCommandModalOpen(true);
+  };
+
+  const closeCvCommandModal = () => {
+    setCvCommandModalOpen(false);
+    setCvPendingCommand(null);
+  };
+
+  const confirmCvCommand = async () => {
+    if (!cvPendingCommand) return;
+
+    console.log("Confirmado:", cvPendingCommand);
+
+  // aquí después vamos a mandar al backend / PLC
+  // por ahorita solo cerramos
+    closeCvCommandModal();
+  };
+  
+  // CONFIRMACION BOMBAS DE OPERACION ^^^^^^^^^
 
   const openConfigModal = (tankKey) => {
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
@@ -558,6 +587,7 @@ export default function App() {
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
+                onSelectMode={openCvCommandModal}
               />
 
               <FalconeCard
@@ -836,6 +866,15 @@ export default function App() {
           onSave={saveTankConfig}
         />
       )}
+
+      {cvCommandModalOpen && cvPendingCommand && (
+        <CaboViejoCommandModal
+          command={cvPendingCommand}
+          onClose={closeCvCommandModal}
+          onConfirm={confirmCvCommand}
+        />
+      )}
+
     </div>
   );
 }
@@ -1004,6 +1043,7 @@ function CaboViejoCard({
   p71b,
   bombasCaboviejo,
   onOpenConfig,
+  onSelectMode,
 }) {
   return (
     <article className="dashboard-card">
@@ -1011,10 +1051,37 @@ function CaboViejoCard({
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
-        <PumpBox name="P70A" runtime={p70a} modes={bombasCaboviejo.p70a} />
-        <PumpBox name="P70B" runtime={p70b} modes={bombasCaboviejo.p70b} />
-        <PumpBox name="P71A" runtime={p71a} modes={bombasCaboviejo.p71a} />
-        <PumpBox name="P71B" runtime={p71b} modes={bombasCaboviejo.p71b} />
+        <PumpBox
+          name="P70A"
+          runtime={p70a}
+          modes={bombasCaboviejo.p70a}
+          onSelectMode={onSelectMode}
+          pumpKey="p70a"
+        />
+
+        <PumpBox
+          name="P70B"
+          runtime={p70b}
+          modes={bombasCaboviejo.p70b}
+          onSelectMode={onSelectMode}
+          pumpKey="p70b"
+        />
+
+        <PumpBox
+          name="P71A"
+          runtime={p71a}
+          modes={bombasCaboviejo.p71a}
+          onSelectMode={onSelectMode}
+          pumpKey="p71a"
+        />
+
+        <PumpBox
+          name="P71B"
+          runtime={p71b}
+          modes={bombasCaboviejo.p71b}
+          onSelectMode={onSelectMode}
+          pumpKey="p71b"
+        />
       </div>
 
       <div className="footer-pills">
@@ -1091,7 +1158,14 @@ function CardHeader({ title, onOpenConfig }) {
   );
 }
 
-function PumpBox({ name, runtime, modes = {}, alert = false }) {
+function PumpBox({
+  name,
+  runtime,
+  modes = {},
+  alert = false,
+  onSelectMode,
+  pumpKey,
+}) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
   const autoActivo = Number(modes.auto) === 1;
@@ -1110,15 +1184,27 @@ function PumpBox({ name, runtime, modes = {}, alert = false }) {
       </div>
 
       <div className="mode-grid">
-        <button className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}
+          onClick={() => onSelectMode?.(pumpKey, "man")}
+          type="button"
+        >
           HAND
         </button>
 
-        <button className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}
+          onClick={() => onSelectMode?.(pumpKey, "off")}
+          type="button"
+        >
           OFF
         </button>
 
-        <button className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}
+          onClick={() => onSelectMode?.(pumpKey, "auto")}
+          type="button"
+        >
           AUTO
         </button>
       </div>
@@ -1368,6 +1454,72 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
           </button>
 
           {renderBypassButtons()}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function CaboViejoCommandModal({ command, onClose, onConfirm }) {
+  const pumpNames = {
+    p70a: "P70A",
+    p70b: "P70B",
+    p71a: "P71A",
+    p71b: "P71B",
+  };
+
+  const modeNames = {
+    man: "HAND",
+    off: "OFF",
+    auto: "AUTO",
+  };
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={onClose} />
+
+      <div className="cv-command-modal">
+        <div className="cv-command-modal__header">
+          <h3>Confirmar comando</h3>
+          <button className="cv-command-modal__close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="cv-command-modal__body">
+          <p className="cv-command-modal__text">
+            ¿Estás seguro de mandar este comando al PLC?
+          </p>
+
+          <div className="cv-command-modal__summary">
+            <div className="cv-command-modal__row">
+              <span>Bomba:</span>
+              <strong>{pumpNames[command.bomba]}</strong>
+            </div>
+
+            <div className="cv-command-modal__row">
+              <span>Modo:</span>
+              <strong>{modeNames[command.modo]}</strong>
+            </div>
+          </div>
+
+          <div className="cv-command-modal__actions">
+            <button
+              className="cv-command-modal__btn cv-command-modal__btn--cancel"
+              onClick={onClose}
+              type="button"
+            >
+              Cancelar
+            </button>
+
+            <button
+              className="cv-command-modal__btn cv-command-modal__btn--confirm"
+              onClick={onConfirm}
+              type="button"
+            >
+              Sí, enviar
+            </button>
+          </div>
         </div>
       </div>
     </>
