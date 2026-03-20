@@ -1525,3 +1525,5 @@ function CaboViejoCommandModal({ command, onClose, onConfirm }) {
     </>
   );
 }
+
+/* COMANDOS PRUEBA PARA RE SUBIR LA INFORMACION DE LAS CARDS */
