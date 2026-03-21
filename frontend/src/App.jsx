@@ -38,10 +38,6 @@ function apiFetch(url, options = {}) {
 }
 
 export default function App() {
-
-  const [cvCommandModalOpen, setCvCommandModalOpen] = useState(false);
-  const [cvPendingCommand, setCvPendingCommand] = useState(null);
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -53,7 +49,6 @@ export default function App() {
     username: "",
     password: "",
   });
-
   const [loginError, setLoginError] = useState("");
 
   const [niveles, setNiveles] = useState({
@@ -114,17 +109,28 @@ export default function App() {
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
-
   const [configForm, setConfigForm] = useState({
     min: "",
     max: "",
   });
 
-  // FUNCIONAMIENTO DE CONFIRMACION DE BOTONES DE MODO OPERACION BOMBAS 
+  // ====== COMANDOS CABO VIEJO ======
+  const [cvCommandModalOpen, setCvCommandModalOpen] = useState(false);
+  const [cvPendingCommand, setCvPendingCommand] = useState(null);
+
+  const [cvWaitingModalOpen, setCvWaitingModalOpen] = useState(false);
+  const [cvWaitingText, setCvWaitingText] = useState(
+    "Esperando respuesta del PLC..."
+  );
 
   const openCvCommandModal = (bomba, modo) => {
-  setCvPendingCommand({ bomba, modo });
-  setCvCommandModalOpen(true);
+    if (bomba !== "p70a") {
+      alert("Por ahora solo está habilitada la prueba en P70A");
+      return;
+    }
+
+    setCvPendingCommand({ bomba, modo });
+    setCvCommandModalOpen(true);
   };
 
   const closeCvCommandModal = () => {
@@ -132,17 +138,92 @@ export default function App() {
     setCvPendingCommand(null);
   };
 
+  const closeCvWaitingModal = () => {
+    setCvWaitingModalOpen(false);
+    setCvWaitingText("Esperando respuesta del PLC...");
+  };
+
+  const getExpectedAckField = (bomba, modo) => {
+    if (bomba === "p70a" && modo === "man") return "ack_man";
+    if (bomba === "p70a" && modo === "off") return "ack_off";
+    if (bomba === "p70a" && modo === "auto") return "ack_auto";
+    return null;
+  };
+
   const confirmCvCommand = async () => {
     if (!cvPendingCommand) return;
 
-    console.log("Confirmado:", cvPendingCommand);
+    const { bomba, modo } = cvPendingCommand;
+    const expectedAckField = getExpectedAckField(bomba, modo);
 
-  // aquí después vamos a mandar al backend / PLC
-  // por ahorita solo cerramos
-    closeCvCommandModal();
+    try {
+      setCvCommandModalOpen(false);
+      setCvWaitingText("Enviando comando al PLC...");
+      setCvWaitingModalOpen(true);
+
+      const res = await apiFetch("/api/caboviejo/comando", {
+        method: "POST",
+        body: JSON.stringify({ bomba, modo }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Error al enviar comando");
+      }
+
+      setCvWaitingText("Esperando respuesta del PLC...");
+
+      const start = Date.now();
+      const timeoutMs = 15000;
+
+      const interval = setInterval(async () => {
+        try {
+          const feedbackRes = await apiFetch("/api/caboviejo/feedback");
+          const feedbackData = await feedbackRes.json();
+
+          const ackValue = feedbackData?.[bomba]?.[expectedAckField];
+
+          if (Number(ackValue) === 1) {
+            clearInterval(interval);
+            setCvWaitingText("Respuesta asignada");
+
+            setTimeout(() => {
+              closeCvWaitingModal();
+              setCvPendingCommand(null);
+            }, 1200);
+            return;
+          }
+
+          if (Date.now() - start > timeoutMs) {
+            clearInterval(interval);
+            setCvWaitingText("Tiempo de espera agotado");
+
+            setTimeout(() => {
+              closeCvWaitingModal();
+              setCvPendingCommand(null);
+            }, 1500);
+          }
+        } catch (err) {
+          clearInterval(interval);
+          setCvWaitingText("Error leyendo feedback");
+
+          setTimeout(() => {
+            closeCvWaitingModal();
+            setCvPendingCommand(null);
+          }, 1500);
+        }
+      }, 700);
+    } catch (error) {
+      setCvWaitingText(error.message || "Error al enviar comando");
+
+      setTimeout(() => {
+        closeCvWaitingModal();
+        setCvPendingCommand(null);
+      }, 1500);
+    }
   };
-  
-  // CONFIRMACION BOMBAS DE OPERACION ^^^^^^^^^
+  // ================================
 
   const openConfigModal = (tankKey) => {
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
@@ -875,6 +956,9 @@ export default function App() {
         />
       )}
 
+      {cvWaitingModalOpen && (
+        <CaboViejoWaitingModal text={cvWaitingText} />
+      )}
     </div>
   );
 }
@@ -1388,23 +1472,15 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
 
   const renderBypassButtons = () => {
     if (tankKey === "planta") {
-      return (
-        <button className="level-modal__bypass">
-          BYPASS PLANTA
-        </button>
-      );
+      return <button className="level-modal__bypass">BYPASS PLANTA</button>;
     }
 
     if (tankKey === "cabo_viejo") {
       return (
         <div className="level-modal__bypass-group">
-          <button className="level-modal__bypass">
-            BYPASS FALCONE
-          </button>
+          <button className="level-modal__bypass">BYPASS FALCONE</button>
 
-          <button className="level-modal__bypass">
-            BYPASS CUADRADA
-          </button>
+          <button className="level-modal__bypass">BYPASS CUADRADA</button>
         </div>
       );
     }
@@ -1526,4 +1602,15 @@ function CaboViejoCommandModal({ command, onClose, onConfirm }) {
   );
 }
 
-/* COMANDOS PRUEBA PARA RE SUBIR LA INFS CARDS */
+function CaboViejoWaitingModal({ text }) {
+  return (
+    <>
+      <div className="modal-overlay" />
+
+      <div className="cv-waiting-modal">
+        <div className="cv-waiting-modal__spinner" />
+        <h3>{text}</h3>
+      </div>
+    </>
+  );
+}
