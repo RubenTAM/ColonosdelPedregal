@@ -109,21 +109,21 @@ const topicToKeyBombasCaboviejo = {
 };
 
 const topicToKeyCaboviejoFeedback = {
-  Caboviejo_Bool_18: { bomba: "p70a", campo: "ack_man" },
-  Caboviejo_Bool_19: { bomba: "p70a", campo: "ack_off" },
-  Caboviejo_Bool_20: { bomba: "p70a", campo: "ack_auto" },
+  Caboviejo_Bool_2: { bomba: "p70a", campo: "ack_man" },
+  Caboviejo_Bool_3: { bomba: "p70a", campo: "ack_off" },
+  Caboviejo_Bool_4: { bomba: "p70a", campo: "ack_auto" },
 
-  Caboviejo_Bool_21: { bomba: "p70b", campo: "ack_man" },
-  Caboviejo_Bool_22: { bomba: "p70b", campo: "ack_off" },
-  Caboviejo_Bool_23: { bomba: "p70b", campo: "ack_auto" },
+  // Caboviejo_Bool_21: { bomba: "p70b", campo: "ack_man" },
+  // Caboviejo_Bool_22: { bomba: "p70b", campo: "ack_off" },
+  // Caboviejo_Bool_23: { bomba: "p70b", campo: "ack_auto" },
 
-  Caboviejo_Bool_24: { bomba: "p71a", campo: "ack_man" },
-  Caboviejo_Bool_25: { bomba: "p71a", campo: "ack_off" },
-  Caboviejo_Bool_26: { bomba: "p71a", campo: "ack_auto" },
+  // Caboviejo_Bool_24: { bomba: "p71a", campo: "ack_man" },
+  // Caboviejo_Bool_25: { bomba: "p71a", campo: "ack_off" },
+  // Caboviejo_Bool_26: { bomba: "p71a", campo: "ack_auto" },
 
-  Caboviejo_Bool_27: { bomba: "p71b", campo: "ack_man" },
-  Caboviejo_Bool_28: { bomba: "p71b", campo: "ack_off" },
-  Caboviejo_Bool_29: { bomba: "p71b", campo: "ack_auto" },
+  // Caboviejo_Bool_27: { bomba: "p71b", campo: "ack_man" },
+  // Caboviejo_Bool_28: { bomba: "p71b", campo: "ack_off" },
+  // Caboviejo_Bool_29: { bomba: "p71b", campo: "ack_auto" },
 };
 
 /* COMANDOS A PLC - PRUEBA SOLO P70A */
@@ -558,9 +558,24 @@ app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
         .json({ error: "No se encontró topic de comando" });
     }
 
-    client.publish(topicComando, "1", { qos: 0, retain: false });
+    //
+    const topics = commandTopicCaboviejo[bomba];
 
-    console.log(`Comando enviado -> ${topicComando}: 1`);
+    if (!topics) {
+      return res.status(400).json({ error: "Bomba no válida" });
+    }
+
+    // Enviar estados exclusivos
+    for (const key in topics) {
+      const topic = topics[key];
+      const value = key === modo ? "1" : "0";
+
+      client.publish(topic, value, { qos: 0, retain: false });
+
+      console.log(`Enviado -> ${topic}: ${value}`);
+    }
+    
+    //
 
     return res.json({
       ok: true,
