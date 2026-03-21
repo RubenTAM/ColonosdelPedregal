@@ -78,10 +78,10 @@ export default function App() {
   });
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
-    p70a: { man: 0, off: 0, auto: 1, running: 0 },
-    p70b: { man: 0, off: 0, auto: 1, running: 0 },
-    p71a: { man: 0, off: 0, auto: 1, running: 0 },
-    p71b: { man: 0, off: 0, auto: 1, running: 0 },
+    p70a: { man: 0, off: 0, auto: 0, running: 0 },
+    p70b: { man: 0, off: 0, auto: 0, running: 0 },
+    p71a: { man: 0, off: 0, auto: 0, running: 0 },
+    p71b: { man: 0, off: 0, auto: 0, running: 0 },
   });
 
   const [plantaBotones, setPlantaBotones] = useState({
@@ -144,9 +144,9 @@ export default function App() {
   };
 
   const getExpectedAckField = (bomba, modo) => {
-    if (bomba === "p70a" && modo === "man") return "ack_man";
-    if (bomba === "p70a" && modo === "off") return "ack_off";
-    if (bomba === "p70a" && modo === "auto") return "ack_auto";
+    if (bomba === "p70a" && modo === "man") return "man";
+    if (bomba === "p70a" && modo === "off") return "off";
+    if (bomba === "p70a" && modo === "auto") return "auto";
     return null;
   };
 

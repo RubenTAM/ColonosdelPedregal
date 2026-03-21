@@ -109,9 +109,9 @@ const topicToKeyBombasCaboviejo = {
 };
 
 const topicToKeyCaboviejoFeedback = {
-  Caboviejo_Bool_2: { bomba: "p70a", campo: "ack_man" },
-  Caboviejo_Bool_3: { bomba: "p70a", campo: "ack_off" },
-  Caboviejo_Bool_4: { bomba: "p70a", campo: "ack_auto" },
+  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
+  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
+  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
 
   // Caboviejo_Bool_21: { bomba: "p70b", campo: "ack_man" },
   // Caboviejo_Bool_22: { bomba: "p70b", campo: "ack_off" },
@@ -187,11 +187,18 @@ client.on("message", (topic, message) => {
     const valorNormalizado =
       texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
 
-    if (!caboviejoFeedback[bomba]) {
-      caboviejoFeedback[bomba] = {};
+    if (!bombasCaboviejo[bomba]) {
+      bombasCaboviejo[bomba]={man:0 , off:0, auto:0, running:0};
     }
 
-    caboviejoFeedback[bomba][campo] = valorNormalizado;
+    if(valorNormalizado === 1){
+      bombasCaboviejo[bomba].man = 0 ;
+      bombasCaboviejo[bomba].off = 0 ;
+      bombasCaboviejo[bomba].auto = 0 ;
+      bombasCaboviejo[bomba][campo] = 0 ;
+    } else{
+      bombasCaboviejo[bomba][campo] = 0 ;
+    }
 
     console.log(`Feedback Cabo Viejo ${bomba} ${campo}:`, valorNormalizado);
     return;
@@ -574,7 +581,7 @@ app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
 
       console.log(`Enviado -> ${topic}: ${value}`);
     }
-    
+
     //
 
     return res.json({
