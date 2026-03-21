@@ -201,6 +201,7 @@ client.on("message", (topic, message) => {
     }
 
     console.log(`Feedback Cabo Viejo ${bomba} ${campo}:`, valorNormalizado);
+    console.log('Estado actual de bomba:', bombasCaboviejo[bomba]);
     return;
   }
 
