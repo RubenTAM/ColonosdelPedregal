@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = 3001;
-// Puerto Real: 18.216.64.219
 const MQTT_URL = "mqtt://64.23.155.31:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 
@@ -66,8 +65,8 @@ let caboviejoFeedback = {
     ack_man: 0,
     ack_off: 0,
     ack_auto: 0,
-  }
-}
+  },
+};
 
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
@@ -103,56 +102,40 @@ const topicToKeyRuntime = {
 
 /* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
 const topicToKeyBombasCaboviejo = {
-  // Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
-  // Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
-  // Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
   Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
-
-  // Caboviejo_Bool_5: { bomba: "p70b", campo: "man" },
-  // Caboviejo_Bool_6: { bomba: "p70b", campo: "off" },
-  // Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
   Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
-
-  // Caboviejo_Bool_8: { bomba: "p71a", campo: "man" },
-  // Caboviejo_Bool_9: { bomba: "p71a", campo: "off" },
-  // Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
   Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
-
-  // Caboviejo_Bool_11: { bomba: "p71b", campo: "man" },
-  // Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
-  // Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
 
 const topicToKeyCaboviejoFeedback = {
-  Caboviejo_Bool_18:{bomba: "p70a", campo: "ack_man" },
-  Caboviejo_Bool_19:{bomba: "p70a", campo: "ack_off" },
-  Caboviejo_Bool_20:{bomba: "p70a", campo: "ack_auto" },
+  Caboviejo_Bool_18: { bomba: "p70a", campo: "ack_man" },
+  Caboviejo_Bool_19: { bomba: "p70a", campo: "ack_off" },
+  Caboviejo_Bool_20: { bomba: "p70a", campo: "ack_auto" },
 
-  Caboviejo_Bool_21:{bomba: "p70b", campo: "ack_man" },
-  Caboviejo_Bool_22:{bomba: "p70b", campo: "ack_off" },
-  Caboviejo_Bool_23:{bomba: "p70b", campo: "ack_auto" },
+  Caboviejo_Bool_21: { bomba: "p70b", campo: "ack_man" },
+  Caboviejo_Bool_22: { bomba: "p70b", campo: "ack_off" },
+  Caboviejo_Bool_23: { bomba: "p70b", campo: "ack_auto" },
 
-  Caboviejo_Bool_24:{bomba: "p71a", campo: "ack_man" },
-  Caboviejo_Bool_25:{bomba: "p71a", campo: "ack_off" },
-  Caboviejo_Bool_26:{bomba: "p71a", campo: "ack_auto" },
+  Caboviejo_Bool_24: { bomba: "p71a", campo: "ack_man" },
+  Caboviejo_Bool_25: { bomba: "p71a", campo: "ack_off" },
+  Caboviejo_Bool_26: { bomba: "p71a", campo: "ack_auto" },
 
-  Caboviejo_Bool_27:{bomba: "p71b", campo: "ack_man" },
-  Caboviejo_Bool_28:{bomba: "p71b", campo: "ack_off" },
-  Caboviejo_Bool_29:{bomba: "p71b", campo: "ack_auto" }, 
-}
+  Caboviejo_Bool_27: { bomba: "p71b", campo: "ack_man" },
+  Caboviejo_Bool_28: { bomba: "p71b", campo: "ack_off" },
+  Caboviejo_Bool_29: { bomba: "p71b", campo: "ack_auto" },
+};
 
-// PRUEBA DE TAGS COMANDOS A PLC CABO VIEJO
-
+/* COMANDOS A PLC - PRUEBA SOLO P70A */
 const commandTopicCaboviejo = {
   p70a: {
     man: "R_Bool_2",
     off: "R_Bool_3",
     auto: "R_Bool_4",
-  }
-}
+  },
+};
 
-// TOPICS PLANTA ESTADOS 
+/* TOPICS PLANTA ESTADOS */
 const topicToKeyPlantaBotones = {
   Planta_Bool_2: "bombaA",
   Planta_Bool_3: "bombaB",
@@ -197,22 +180,24 @@ client.on("connect", () => {
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
 
-  // LECTOR DE FEEDBACK
-
+  /* FEEDBACK CABO VIEJO */
   if (topicToKeyCaboviejoFeedback[topic]) {
-  const { bomba, campo } = topicToKeyCaboviejoFeedback[topic];
+    const { bomba, campo } = topicToKeyCaboviejoFeedback[topic];
 
-  const valorNormalizado =
-    texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
+    const valorNormalizado =
+      texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
 
-  caboviejoFeedback[bomba][campo] = valorNormalizado;
+    if (!caboviejoFeedback[bomba]) {
+      caboviejoFeedback[bomba] = {};
+    }
 
-  console.log(`Feedback Cabo Viejo ${bomba} ${campo}:`, valorNormalizado);
-  return;
-}
+    caboviejoFeedback[bomba][campo] = valorNormalizado;
 
+    console.log(`Feedback Cabo Viejo ${bomba} ${campo}:`, valorNormalizado);
+    return;
+  }
 
-    /* BOTONES PLANTA */
+  /* BOTONES PLANTA */
   if (topicToKeyPlantaBotones[topic]) {
     const key = topicToKeyPlantaBotones[topic];
 
@@ -225,7 +210,7 @@ client.on("message", (topic, message) => {
     return;
   }
 
-    /* BOTONES Y ESTADO DE BOMBAS CABO VIEJO */
+  /* ESTADO DE BOMBAS CABO VIEJO */
   if (topicToKeyBombasCaboviejo[topic]) {
     const { bomba, campo } = topicToKeyBombasCaboviejo[topic];
 
@@ -364,13 +349,17 @@ app.post("/api/auth/login", (req, res) => {
       }
 
       if (!user) {
-        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+        return res
+          .status(401)
+          .json({ error: "Usuario o contraseña incorrectos" });
       }
 
       const valid = bcrypt.compareSync(password, user.password_hash);
 
       if (!valid) {
-        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
+        return res
+          .status(401)
+          .json({ error: "Usuario o contraseña incorrectos" });
       }
 
       usersDb.run(
@@ -486,7 +475,6 @@ app.get("/api/login-logs", verifyToken, (req, res) => {
 });
 
 /* ---------- RUTAS DE NIVELES LIBRES ---------- */
-/* ESTO ES LO IMPORTANTE PARA NO ROMPER MQTT/DASHBOARD */
 
 app.get("/api/niveles", (req, res) => {
   res.json({
@@ -546,26 +534,28 @@ app.get("/api/cabo-viejo", (req, res) => {
   );
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend corriendo en http://localhost:${PORT}`);
-});
+/* ---------- PRUEBA COMANDO CABO VIEJO P70A ---------- */
 
-app.post("/api/caboviejo/comando", authenticateToken, (req, res) => {
+app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
   try {
     const { bomba, modo } = req.body;
 
     if (bomba !== "p70a") {
-      return res.status(400).json({ error: "Por ahora solo está habilitado P70A" });
+      return res
+        .status(400)
+        .json({ error: "Por ahora solo está habilitado P70A" });
     }
 
     if (!["man", "off", "auto"].includes(modo)) {
       return res.status(400).json({ error: "Modo inválido" });
     }
 
-    const topicComando = commandTopicCaboviejo[bomba][modo];
+    const topicComando = commandTopicCaboviejo[bomba]?.[modo];
 
     if (!topicComando) {
-      return res.status(400).json({ error: "No se encontró topic de comando" });
+      return res
+        .status(400)
+        .json({ error: "No se encontró topic de comando" });
     }
 
     client.publish(topicComando, "1", { qos: 0, retain: false });
@@ -585,6 +575,10 @@ app.post("/api/caboviejo/comando", authenticateToken, (req, res) => {
   }
 });
 
-app.get("/api/caboviejo/feedback", authenticateToken, (req, res) => {
+app.get("/api/caboviejo/feedback", verifyToken, (req, res) => {
   res.json(caboviejoFeedback);
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend corriendo en http://localhost:${PORT}`);
 });
