@@ -14,6 +14,7 @@ app.use(express.json());
 const PORT = 3001;
 const MQTT_URL = "mqtt://64.23.155.31:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
+const COMMAND_PULSE_MS = 3000;
 
 /* ESTADO EN MEMORIA */
 let niveles = {
@@ -43,10 +44,10 @@ let plcStatus = {
 };
 
 let bombasCaboviejo = {
-  p70a: { man: 0, off: 0, auto: 1, running: 0 },
-  p70b: { man: 0, off: 0, auto: 1, running: 0 },
-  p71a: { man: 0, off: 0, auto: 1, running: 0 },
-  p71b: { man: 0, off: 0, auto: 1, running: 0 },
+  p70a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+  p70b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+  p71a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+  p71b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
 };
 
 let plantaBotones = {
@@ -60,11 +61,10 @@ let plantaBotones = {
 
 let guardandoHistorico = false;
 
+/* ESTADO DE FEEDBACK / ASIGNACIÓN PARA COMANDOS */
 let caboviejoFeedback = {
   p70a: {
-    ack_man: 0,
-    ack_off: 0,
-    ack_auto: 0,
+    status: -1, // 0=off, 1=man, 2=auto
   },
 };
 
@@ -100,7 +100,7 @@ const topicToKeyRuntime = {
   Caboviejo_Real_5: "runtime_p71b",
 };
 
-/* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
+/* TOPICS MQTT - ESTADO RUNNING CABO VIEJO */
 const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
   Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
@@ -108,30 +108,17 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
 
-const topicToKeyCaboviejoFeedback = {
-  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
-  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
-  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
-
-  // Caboviejo_Bool_21: { bomba: "p70b", campo: "ack_man" },
-  // Caboviejo_Bool_22: { bomba: "p70b", campo: "ack_off" },
-  // Caboviejo_Bool_23: { bomba: "p70b", campo: "ack_auto" },
-
-  // Caboviejo_Bool_24: { bomba: "p71a", campo: "ack_man" },
-  // Caboviejo_Bool_25: { bomba: "p71a", campo: "ack_off" },
-  // Caboviejo_Bool_26: { bomba: "p71a", campo: "ack_auto" },
-
-  // Caboviejo_Bool_27: { bomba: "p71b", campo: "ack_man" },
-  // Caboviejo_Bool_28: { bomba: "p71b", campo: "ack_off" },
-  // Caboviejo_Bool_29: { bomba: "p71b", campo: "ack_auto" },
+/* TOPIC MQTT - ESTADO ENTERO P70A */
+const topicToKeyCaboviejoStatus = {
+  Caboviejo_P70A_Int_2: { bomba: "p70a" },
 };
 
 /* COMANDOS A PLC - PRUEBA SOLO P70A */
 const commandTopicCaboviejo = {
   p70a: {
-    man: "R_Bool_2",
-    off: "R_Bool_3",
-    auto: "R_Bool_4",
+    man: "Caboviejo_P70A_R_Bool_2",
+    off: "Caboviejo_P70A_R_Bool_3",
+    auto: "Caboviejo_P70A_R_Bool_4",
   },
 };
 
@@ -150,7 +137,7 @@ const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
 const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
 const topicsPlantaBotones = Object.keys(topicToKeyPlantaBotones);
-const topicsCaboviejoFeedback = Object.keys(topicToKeyCaboviejoFeedback);
+const topicsCaboviejoStatus = Object.keys(topicToKeyCaboviejoStatus);
 
 const topics = [
   ...topicsNivel,
@@ -158,7 +145,7 @@ const topics = [
   ...topicsRuntime,
   ...topicsBombasCaboviejo,
   ...topicsPlantaBotones,
-  ...topicsCaboviejoFeedback,
+  ...topicsCaboviejoStatus,
 ];
 
 const client = mqtt.connect(MQTT_URL);
@@ -180,28 +167,34 @@ client.on("connect", () => {
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
 
-  /* FEEDBACK CABO VIEJO */
-  if (topicToKeyCaboviejoFeedback[topic]) {
-    const { bomba, campo } = topicToKeyCaboviejoFeedback[topic];
+  /* ESTADO ENTERO P70A */
+  if (topicToKeyCaboviejoStatus[topic]) {
+    const { bomba } = topicToKeyCaboviejoStatus[topic];
+    const valor = parseInt(texto, 10);
 
-    const valorNormalizado =
-      texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
+    if (Number.isNaN(valor)) return;
+
+    caboviejoFeedback[bomba].status = valor;
 
     if (!bombasCaboviejo[bomba]) {
-      bombasCaboviejo[bomba]={man:0 , off:0, auto:0, running:0};
+      bombasCaboviejo[bomba] = {
+        man: 0,
+        off: 0,
+        auto: 0,
+        running: 0,
+        modoEntero: -1,
+      };
     }
 
-    if(valorNormalizado === 1){
-      bombasCaboviejo[bomba].man = 0 ;
-      bombasCaboviejo[bomba].off = 0 ;
-      bombasCaboviejo[bomba].auto = 0 ;
-      bombasCaboviejo[bomba][campo] = 0 ;
-    } else{
-      bombasCaboviejo[bomba][campo] = 0 ;
-    }
+    bombasCaboviejo[bomba].modoEntero = valor;
 
-    console.log(`Feedback Cabo Viejo ${bomba} ${campo}:`, valorNormalizado);
-    console.log('Estado actual de bomba:', bombasCaboviejo[bomba]);
+    // 0 = off, 1 = man, 2 = auto
+    bombasCaboviejo[bomba].man = valor === 1 ? 1 : 0;
+    bombasCaboviejo[bomba].off = valor === 0 ? 1 : 0;
+    bombasCaboviejo[bomba].auto = valor === 2 ? 1 : 0;
+
+    console.log(`Estado entero ${bomba}:`, valor);
+    console.log("Estado visual actual:", bombasCaboviejo[bomba]);
     return;
   }
 
@@ -218,7 +211,7 @@ client.on("message", (topic, message) => {
     return;
   }
 
-  /* ESTADO DE BOMBAS CABO VIEJO */
+  /* ESTADO RUNNING CABO VIEJO */
   if (topicToKeyBombasCaboviejo[topic]) {
     const { bomba, campo } = topicToKeyBombasCaboviejo[topic];
 
@@ -542,7 +535,7 @@ app.get("/api/cabo-viejo", (req, res) => {
   );
 });
 
-/* ---------- PRUEBA COMANDO CABO VIEJO P70A ---------- */
+/* ---------- COMANDO CABO VIEJO P70A ---------- */
 
 app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
   try {
@@ -566,30 +559,20 @@ app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
         .json({ error: "No se encontró topic de comando" });
     }
 
-    //
-    const topics = commandTopicCaboviejo[bomba];
+    client.publish(topicComando, "1", { qos: 0, retain: false });
+    console.log(`Pulso ON -> ${topicComando}: 1`);
 
-    if (!topics) {
-      return res.status(400).json({ error: "Bomba no válida" });
-    }
-
-    // Enviar estados exclusivos
-    for (const key in topics) {
-      const topic = topics[key];
-      const value = key === modo ? "1" : "0";
-
-      client.publish(topic, value, { qos: 0, retain: false });
-
-      console.log(`Enviado -> ${topic}: ${value}`);
-    }
-
-    //
+    setTimeout(() => {
+      client.publish(topicComando, "0", { qos: 0, retain: false });
+      console.log(`Pulso OFF -> ${topicComando}: 0`);
+    }, COMMAND_PULSE_MS);
 
     return res.json({
       ok: true,
       bomba,
       modo,
       topicComando,
+      pulseMs: COMMAND_PULSE_MS,
       message: "Comando enviado correctamente",
     });
   } catch (error) {
@@ -605,3 +588,4 @@ app.get("/api/caboviejo/feedback", verifyToken, (req, res) => {
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
 });
+

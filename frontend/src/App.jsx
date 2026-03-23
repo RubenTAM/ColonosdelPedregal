@@ -78,10 +78,10 @@ export default function App() {
   });
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
-    p70a: { man: 0, off: 0, auto: 0, running: 0 },
-    p70b: { man: 0, off: 0, auto: 0, running: 0 },
-    p71a: { man: 0, off: 0, auto: 0, running: 0 },
-    p71b: { man: 0, off: 0, auto: 0, running: 0 },
+    p70a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+    p70b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+    p71a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+    p71b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
   });
 
   const [plantaBotones, setPlantaBotones] = useState({
@@ -143,86 +143,91 @@ export default function App() {
     setCvWaitingText("Esperando respuesta del PLC...");
   };
 
+//Cambio en el status de las bombas (0=off, 1=man, 2=auto)
   const getExpectedAckField = (bomba, modo) => {
-    if (bomba === "p70a" && modo === "man") return "man";
-    if (bomba === "p70a" && modo === "off") return "off";
-    if (bomba === "p70a" && modo === "auto") return "auto";
+    if (bomba !== "p70a") return null;
+
+    if (bomba === "off") return 0;
+    if (bomba === "man") return 1;
+    if (bomba === "auto") return 2;
+
     return null;
+
   };
 
   const confirmCvCommand = async () => {
-    if (!cvPendingCommand) return;
+  if (!cvPendingCommand) return;
 
-    const { bomba, modo } = cvPendingCommand;
-    const expectedAckField = getExpectedAckField(bomba, modo);
+  const { bomba, modo } = cvPendingCommand;
+  const expectedStatusValue = getExpectedStatusValue(bomba, modo);
 
-    try {
-      setCvCommandModalOpen(false);
-      setCvWaitingText("Enviando comando al PLC...");
-      setCvWaitingModalOpen(true);
+  try {
+    setCvCommandModalOpen(false);
+    setCvWaitingText("Enviando comando al PLC...");
+    setCvWaitingModalOpen(true);
 
-      const res = await apiFetch("/api/caboviejo/comando", {
-        method: "POST",
-        body: JSON.stringify({ bomba, modo }),
-      });
+    const res = await apiFetch("/api/caboviejo/comando", {
+      method: "POST",
+      body: JSON.stringify({ bomba, modo }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Error al enviar comando");
-      }
+    if (!res.ok) {
+      throw new Error(data.error || "Error al enviar comando");
+    }
 
-      setCvWaitingText("Esperando respuesta del PLC...");
+    setCvWaitingText("Esperando respuesta del PLC...");
 
-      const start = Date.now();
-      const timeoutMs = 15000;
+    const start = Date.now();
+    const timeoutMs = 15000;
 
-      const interval = setInterval(async () => {
-        try {
-          const feedbackRes = await apiFetch("/api/caboviejo/feedback");
-          const feedbackData = await feedbackRes.json();
+    const interval = setInterval(async () => {
+      try {
+        const feedbackRes = await apiFetch("/api/caboviejo/feedback");
+        const feedbackData = await feedbackRes.json();
 
-          const ackValue = feedbackData?.[bomba]?.[expectedAckField];
+        const statusValue = feedbackData?.[bomba]?.status;
 
-          if (Number(ackValue) === 1) {
-            clearInterval(interval);
-            setCvWaitingText("Respuesta asignada");
-
-            setTimeout(() => {
-              closeCvWaitingModal();
-              setCvPendingCommand(null);
-            }, 1200);
-            return;
-          }
-
-          if (Date.now() - start > timeoutMs) {
-            clearInterval(interval);
-            setCvWaitingText("Tiempo de espera agotado");
-
-            setTimeout(() => {
-              closeCvWaitingModal();
-              setCvPendingCommand(null);
-            }, 1500);
-          }
-        } catch (err) {
+        if (Number(statusValue) === expectedStatusValue) {
           clearInterval(interval);
-          setCvWaitingText("Error leyendo feedback");
+          setCvWaitingText("Respuesta asignada");
+
+          setTimeout(() => {
+            closeCvWaitingModal();
+            setCvPendingCommand(null);
+          }, 1200);
+          return;
+        }
+
+        if (Date.now() - start > timeoutMs) {
+          clearInterval(interval);
+          setCvWaitingText("Tiempo de espera agotado");
 
           setTimeout(() => {
             closeCvWaitingModal();
             setCvPendingCommand(null);
           }, 1500);
         }
-      }, 700);
-    } catch (error) {
-      setCvWaitingText(error.message || "Error al enviar comando");
+      } catch (err) {
+        clearInterval(interval);
+        setCvWaitingText("Error leyendo status");
 
-      setTimeout(() => {
-        closeCvWaitingModal();
-        setCvPendingCommand(null);
-      }, 1500);
-    }
-  };
+        setTimeout(() => {
+          closeCvWaitingModal();
+          setCvPendingCommand(null);
+        }, 1500);
+      }
+    }, 700);
+  } catch (error) {
+    setCvWaitingText(error.message || "Error al enviar comando");
+
+    setTimeout(() => {
+      closeCvWaitingModal();
+      setCvPendingCommand(null);
+    }, 1500);
+  }
+};
   // ================================
 
   const openConfigModal = (tankKey) => {
