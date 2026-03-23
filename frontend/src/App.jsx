@@ -163,7 +163,13 @@ export default function App() {
   if (!cvPendingCommand) return;
 
   const { bomba, modo } = cvPendingCommand;
-  const expectedStatusValue = getExpectedStatusValue(bomba, modo);
+  const expectedStatusValue = 
+    modo === "off" ? 0 :
+    modo === "man" ? 1 :
+    modo === "auto" ? 2 :
+    null;
+
+  console.log("expectedStatusValue:", expectedStatusValue)  
 
   try {
     setCvCommandModalOpen(false);
@@ -176,6 +182,7 @@ export default function App() {
     });
 
     const data = await res.json();
+    console.log("respuesta comando:", data);
 
     if (!res.ok) {
       throw new Error(data.error || "Error al enviar comando");
@@ -191,7 +198,8 @@ export default function App() {
         const feedbackRes = await apiFetch("/api/caboviejo/feedback");
         const feedbackData = await feedbackRes.json();
 
-        const statusValue = feedbackData?.[bomba]?.modoEntero;
+        const statusValue = Number(feedbackData?.[bomba]?.status);
+        console.log("statusValue:", statusValue, "expected:", expectedStatusValue);
 
         if (Number(statusValue) === expectedStatusValue) {
           clearInterval(interval);
@@ -1116,7 +1124,7 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
       <div className="plant-reset-row">
         <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET DE LA VIDA
+          ⟲ RESET DE TECNOALL
         </button>
       </div>
 
