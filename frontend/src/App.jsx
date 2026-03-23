@@ -144,7 +144,7 @@ export default function App() {
   };
 
 //Cambio en el status de las bombas (0=off, 1=man, 2=auto)
-  const getExpectedAckField = (bomba, modo) => {
+  const getExpectedStatusValue = (bomba, modo) => {
     if (bomba !== "p70a") return null;
 
     if (bomba === "off") return 0;
@@ -1116,7 +1116,7 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
       <div className="plant-reset-row">
         <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET DE BOMBAS
+          ⟲ RESET DE TODO
         </button>
       </div>
 
@@ -1602,7 +1602,8 @@ function CaboViejoCommandModal({ command, onClose, onConfirm }) {
               onClick={() => {
                 alert("CLICK EN SI ENVIAR");
                 console.log("CLICK EN SI ENVIAR");
-                onConfirm();
+                console.log("onConfirm:", onConfirm);
+                onConfirm?.();
               }}
               type="button"
             >
