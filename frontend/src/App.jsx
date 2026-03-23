@@ -181,6 +181,15 @@ export default function App() {
       body: JSON.stringify({ bomba, modo }),
     });
 
+    const retryInterval = setInterval(() =>{
+      console.log("Reintentando comando ...");
+      
+      apiFetch("/api/caboviejo/comando",{
+        method: "POST",
+        body: JSON.stringify({bomba, modo}),
+      })
+    }, 1000);
+
     const data = await res.json();
     console.log("respuesta comando:", data);
 
@@ -203,6 +212,7 @@ export default function App() {
 
         if (Number(statusValue) === expectedStatusValue) {
           clearInterval(interval);
+          clearInterval(retryInterval);
           setCvWaitingText("Respuesta asignada");
 
           setTimeout(() => {
@@ -214,6 +224,7 @@ export default function App() {
 
         if (Date.now() - start > timeoutMs) {
           clearInterval(interval);
+          clearInterval(retryInterval);
           setCvWaitingText("Tiempo de espera agotado");
 
           setTimeout(() => {
