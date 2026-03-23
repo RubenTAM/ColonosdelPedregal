@@ -191,7 +191,7 @@ export default function App() {
         const feedbackRes = await apiFetch("/api/caboviejo/feedback");
         const feedbackData = await feedbackRes.json();
 
-        const statusValue = feedbackData?.[bomba]?.status;
+        const statusValue = feedbackData?.[bomba]?.modoEntero;
 
         if (Number(statusValue) === expectedStatusValue) {
           clearInterval(interval);
