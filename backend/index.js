@@ -116,9 +116,9 @@ const topicToKeyCaboviejoStatus = {
 /* COMANDOS A PLC - PRUEBA SOLO P70A */
 const commandTopicCaboviejo = {
   p70a: {
-    man: "Caboviejo_P70A_R_Bool_2",
-    off: "Caboviejo_P70A_R_Bool_3",
-    auto: "Caboviejo_P70A_R_Bool_4",
+    man: "R_Bool_2",
+    off: "R_Bool_3",
+    auto: "R_Bool_4",
   },
 };
 
