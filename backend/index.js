@@ -538,6 +538,7 @@ app.get("/api/cabo-viejo", (req, res) => {
 /* ---------- COMANDO CABO VIEJO P70A ---------- */
 
 app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
+  console.log("COMANDO RECIBIDO:", req.body);
   try {
     const { bomba, modo } = req.body;
 
