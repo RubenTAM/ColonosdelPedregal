@@ -156,7 +156,7 @@ export default function App() {
   };
 
   const confirmCvCommand = async () => {
-    alert("ENTRO A confirmCvCommand")
+    // alert("ENTRO A confirmCvCommand")
     console.log("ENTRO A confirmCvCommand");
     console.log("cvPendingCommand:", cvPendingCommand);
 
@@ -1600,7 +1600,7 @@ function CaboViejoCommandModal({ command, onClose, onConfirm }) {
             <button
               className="cv-command-modal__btn cv-command-modal__btn--confirm"
               onClick={() => {
-                alert("CLICK EN SI ENVIAR");
+                // alert("CLICK EN SI ENVIAR");
                 console.log("CLICK EN SI ENVIAR");
                 console.log("onConfirm:", onConfirm);
                 onConfirm?.();
