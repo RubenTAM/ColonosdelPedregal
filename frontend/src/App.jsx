@@ -156,6 +156,7 @@ export default function App() {
   };
 
   const confirmCvCommand = async () => {
+    alert("ENTRO A confirmCvCommand")
     console.log("ENTRO A confirmCvCommand");
     console.log("cvPendingCommand:", cvPendingCommand);
 
@@ -1115,7 +1116,7 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
       <div className="plant-reset-row">
         <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET CONTADORES
+          ⟲ RESET DE BOMBAS
         </button>
       </div>
 
@@ -1598,7 +1599,11 @@ function CaboViejoCommandModal({ command, onClose, onConfirm }) {
 
             <button
               className="cv-command-modal__btn cv-command-modal__btn--confirm"
-              onClick={onConfirm}
+              onClick={() => {
+                alert("CLICK EN SI ENVIAR");
+                console.log("CLICK EN SI ENVIAR");
+                onConfirm();
+              }}
               type="button"
             >
               Sí, enviar
