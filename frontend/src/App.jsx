@@ -1116,7 +1116,7 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
       <div className="plant-reset-row">
         <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET DE TODO
+          ⟲ RESET DE LA VIDA
         </button>
       </div>
 
