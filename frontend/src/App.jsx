@@ -156,6 +156,9 @@ export default function App() {
   };
 
   const confirmCvCommand = async () => {
+    console.log("ENTRO A confirmCvCommand");
+    console.log("cvPendingCommand:", cvPendingCommand);
+
   if (!cvPendingCommand) return;
 
   const { bomba, modo } = cvPendingCommand;
