@@ -14,7 +14,7 @@ app.use(express.json());
 const PORT = 3001;
 const MQTT_URL = "mqtt://64.23.155.31:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
-const COMMAND_PULSE_MS = 10000;
+const COMMAND_PULSE_MS = 300;
 
 /* ESTADO EN MEMORIA */
 let niveles = {

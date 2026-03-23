@@ -156,63 +156,55 @@ export default function App() {
   };
 
   const confirmCvCommand = async () => {
-    // alert("ENTRO A confirmCvCommand")
-    console.log("ENTRO A confirmCvCommand");
-    console.log("cvPendingCommand:", cvPendingCommand);
-
   if (!cvPendingCommand) return;
 
   const { bomba, modo } = cvPendingCommand;
-  const expectedStatusValue = 
+  const expectedStatusValue =
     modo === "off" ? 0 :
     modo === "man" ? 1 :
     modo === "auto" ? 2 :
     null;
-
-  console.log("expectedStatusValue:", expectedStatusValue)  
 
   try {
     setCvCommandModalOpen(false);
     setCvWaitingText("Enviando comando al PLC...");
     setCvWaitingModalOpen(true);
 
-    const res = await apiFetch("/api/caboviejo/comando", {
+    // primer envío
+    await apiFetch("/api/caboviejo/comando", {
       method: "POST",
       body: JSON.stringify({ bomba, modo }),
     });
-
-    const retryInterval = setInterval(() =>{
-      console.log("Reintentando comando ...");
-      
-      apiFetch("/api/caboviejo/comando",{
-        method: "POST",
-        body: JSON.stringify({bomba, modo}),
-      })
-    }, 1000);
-
-    const data = await res.json();
-    console.log("respuesta comando:", data);
-
-    if (!res.ok) {
-      throw new Error(data.error || "Error al enviar comando");
-    }
 
     setCvWaitingText("Esperando respuesta del PLC...");
 
     const start = Date.now();
     const timeoutMs = 15000;
 
+    // reintento cada 1 segundo
+    const retryInterval = setInterval(() => {
+      apiFetch("/api/caboviejo/comando", {
+        method: "POST",
+        body: JSON.stringify({ bomba, modo }),
+      }).catch((err) => {
+        console.error("Error reintentando comando:", err);
+      });
+    }, 1000);
+
+    // polling del status
     const interval = setInterval(async () => {
       try {
         const feedbackRes = await apiFetch("/api/caboviejo/feedback");
         const feedbackData = await feedbackRes.json();
 
         const statusValue = Number(feedbackData?.[bomba]?.status);
+
         console.log("statusValue:", statusValue, "expected:", expectedStatusValue);
 
-        if (Number(statusValue) === expectedStatusValue) {
+        if (statusValue === expectedStatusValue) {
           clearInterval(interval);
           clearInterval(retryInterval);
+
           setCvWaitingText("Respuesta asignada");
 
           setTimeout(() => {
@@ -225,6 +217,7 @@ export default function App() {
         if (Date.now() - start > timeoutMs) {
           clearInterval(interval);
           clearInterval(retryInterval);
+
           setCvWaitingText("Tiempo de espera agotado");
 
           setTimeout(() => {
@@ -233,7 +226,11 @@ export default function App() {
           }, 1500);
         }
       } catch (err) {
+        console.error("Error leyendo feedback:", err);
+
         clearInterval(interval);
+        clearInterval(retryInterval);
+
         setCvWaitingText("Error leyendo status");
 
         setTimeout(() => {
@@ -243,6 +240,8 @@ export default function App() {
       }
     }, 700);
   } catch (error) {
+    console.error("Error enviando comando:", error);
+
     setCvWaitingText(error.message || "Error al enviar comando");
 
     setTimeout(() => {
