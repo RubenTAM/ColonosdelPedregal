@@ -136,15 +136,8 @@ export default function App() {
        
       setPumpDetailModalOpen(true);
       
-    };
 
-    //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMBA
-
-    
-
-    
-
-    
+    //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMB    
   };
 
   const closePumpDetailModal = () => {
@@ -1031,7 +1024,7 @@ export default function App() {
 
     </div>
   );
-
+}
 
 function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
   return (
