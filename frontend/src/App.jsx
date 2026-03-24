@@ -1412,7 +1412,7 @@ function PumpBox({
           RUNTIME {name}: {runtime}
         </div>
       </div>
-      <div className="pump-detail-modal__alarm-row">
+      {/* <div className="pump-detail-modal__alarm-row">
             <div
               className={`pump-detail-modal__led ${
                 Number(pump.alarm) === 1
@@ -1421,7 +1421,7 @@ function PumpBox({
               }`}
             />
             <span>Alarming Motor</span>
-      </div>
+        </div> */}
     </div>
   );
 }
