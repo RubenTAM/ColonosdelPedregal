@@ -124,7 +124,7 @@ export default function App() {
   // ====== DETALLE DE BOMBAS ======
   const openPumpDetailModal = (pumpKey, pumpName) => {
     const detalle = caboviejoDetalle[pumpKey] || {};
-      setPumpDetail({
+      setSelectedPumpDetail({
         pumpKey,
         name: pumpName,
         starts: detalle.starts || 0,
@@ -133,7 +133,8 @@ export default function App() {
         speed: "0 rpm",
         alarm: 0,
       })
-        
+       
+      setPumpDetailModalOpen(true);
       
     };
 
@@ -143,7 +144,7 @@ export default function App() {
 
     
 
-    setPumpDetailModalOpen(true);
+    
   };
 
   const closePumpDetailModal = () => {
@@ -660,7 +661,7 @@ export default function App() {
           ©️ 2025 Colonos del Pedregal v2.0.0
         </div>
       </aside>
-
+      
       <main className={`main ${sidebarOpen && !isMobile ? "" : "main--full"}`}>
         <header className="topbar">
           <div className="topbar__left">
