@@ -1412,6 +1412,16 @@ function PumpBox({
           RUNTIME {name}: {runtime}
         </div>
       </div>
+      <div className="pump-detail-modal__alarm-row">
+            <div
+              className={`pump-detail-modal__led ${
+                Number(pump.alarm) === 1
+                  ? "pump-detail-modal__led--on"
+                  : "pump-detail-modal__led--off"
+              }`}
+            />
+            <span>Alarming Motor</span>
+      </div>
     </div>
   );
 }
@@ -1768,17 +1778,6 @@ function PumpDetailModal({ pump, onClose }) {
           <div className="pump-detail-modal__field">
             <div className="pump-detail-modal__label">Speed</div>
             <div className="pump-detail-modal__value">{pump.speed}</div>
-          </div> */}
-
-          {/* <div className="pump-detail-modal__alarm-row">
-            <div
-              className={`pump-detail-modal__led ${
-                Number(pump.alarm) === 1
-                  ? "pump-detail-modal__led--on"
-                  : "pump-detail-modal__led--off"
-              }`}
-            />
-            <span>Alarming Motor</span>
           </div> */}
         </div>
       </div>
