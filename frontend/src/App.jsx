@@ -123,55 +123,25 @@ export default function App() {
 
   // ====== DETALLE DE BOMBAS ======
   const openPumpDetailModal = (pumpKey, pumpName) => {
-    const demoPumpDetails = {
-      p70a: {
-        name: "P70A",
-        starts: 25,
-        runtime: "153.20 hrs",
-        odometer: "802.55 hrs",
-        speed: "1760 rpm",
+    const detalle = caboviejoDetalle[pumpKey] || {};
+      setPumpDetail({
+        pumpKey,
+        name: pumpName,
+        starts: detalle.starts || 0,
+        runtime: `${Number(detalle.runtime || 0).toFixed(2)} hrs`,
+        odometer: `${Number(detalle.odometer || 0).toFixed(2)} hrs`,
+        speed: "0 rpm",
         alarm: 0,
-      },
-      p70b: {
-        name: "P70B",
-        starts: 12,
-        runtime: "98.40 hrs",
-        odometer: "430.10 hrs",
-        speed: "1745 rpm",
-        alarm: 1,
-      },
-      p71a: {
-        name: "P71A",
-        starts: 7,
-        runtime: "45.00 hrs",
-        odometer: "201.75 hrs",
-        speed: "1720 rpm",
-        alarm: 0,
-      },
-      p71b: {
-        name: "P71B",
-        starts: 18,
-        runtime: "120.80 hrs",
-        odometer: "560.90 hrs",
-        speed: "1755 rpm",
-        alarm: 0,
-      },
+      })
+        
+      
     };
 
     //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMBA
 
     
 
-    setSelectedPumpDetail(
-      demoPumpDetails[pumpKey] || {
-        name: pumpName || "BOMBA",
-        starts: 0,
-        runtime: "0.000 hrs",
-        odometer: "0.000 hrs",
-        speed: "0.000 rpm",
-        alarm: 0,
-      }
-    );
+    
 
     setPumpDetailModalOpen(true);
   };
@@ -1060,7 +1030,7 @@ export default function App() {
 
     </div>
   );
-}
+
 
 function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
   return (
@@ -1241,7 +1211,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70a}
           onSelectMode={onSelectMode}
           pumpKey="p70a"
-          onOpenDetail={onOpenPumpDetail}
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1250,7 +1220,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70b}
           onSelectMode={onSelectMode}
           pumpKey="p70b"
-          onOpenDetail={onOpenPumpDetail}
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1259,7 +1229,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71a}
           onSelectMode={onSelectMode}
           pumpKey="p71a"
-          onOpenDetail={onOpenPumpDetail}
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1268,7 +1238,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71b}
           onSelectMode={onSelectMode}
           pumpKey="p71b"
-          onOpenDetail={onOpenPumpDetail}
+          onOpenDetail={openPumpDetailModal}
         />
       </div>
 
