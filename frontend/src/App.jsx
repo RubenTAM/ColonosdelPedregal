@@ -378,11 +378,17 @@ export default function App() {
 
     const obtenerNiveles = () => {
       fetch("/api/niveles")
-        .then((res) => res.json())
+        .then(async(res) => {
+          if (!res,ok){
+            const texto = await res.text();
+            throw new Error ('HTTP ${res.status} - ${texto.slice(0, 120)}');
+          }
+          return res.json();
+        })
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
-          setBombasCaboviejo(data.bombasCaboviejo || {});
+          // setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
