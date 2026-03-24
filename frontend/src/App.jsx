@@ -381,7 +381,7 @@ export default function App() {
         .then(async(res) => {
           if (!res.ok){
             const texto = await res.text();
-            throw new Error ('HTTP ${res.status} - ${texto.slice(0, 120)}');
+            throw new Error (`HTTP ${res.status} - ${texto.slice(0, 120)}`);
           }
           return res.json();
         })
