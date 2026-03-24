@@ -185,11 +185,6 @@ export default function App() {
   );
 
   const openCvCommandModal = (bomba, modo) => {
-    if (bomba !== "p70a") {
-      alert("Por ahora solo está habilitada la prueba en P70A");
-      return;
-    }
-
     setCvPendingCommand({ bomba, modo });
     setCvCommandModalOpen(true);
   };
@@ -205,7 +200,6 @@ export default function App() {
   };
 
   const getExpectedStatusValue = (bomba, modo) => {
-    if (bomba !== "p70a") return null;
     if (modo === "off") return 0;
     if (modo === "man") return 1;
     if (modo === "auto") return 2;
