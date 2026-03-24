@@ -71,7 +71,7 @@ let caboviejoFeedback = {
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
   Planta_Real_1: "planta",
-  Caboviejo_Real_1: "cabo_viejo",
+  Caboviejo_Nivel_Real_1: "cabo_viejo",
   Falcone_Real_1: "falcone",
   Cinco_Real_1: "cinco",
   Seis_Real_1: "seis",
