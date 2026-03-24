@@ -37,9 +37,12 @@ function apiFetch(url, options = {}) {
   });
 }
 
+////////////////////////////////////////
+
 export default function App() {
-  const [pumpDetailModalOpen, setPumpDetailModalOpen]=useState(false);
-  const [selectedPumpDetail, setSelectedPumpDetail]= useState(null);
+  const [pumpDetailModalOpen, setPumpDetailModalOpen] = useState(false);
+  const [selectedPumpDetail, setSelectedPumpDetail] = useState(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -116,6 +119,62 @@ export default function App() {
     max: "",
   });
 
+  // ====== DETALLE DE BOMBAS ======
+  const openPumpDetailModal = (pumpKey, pumpName) => {
+    const demoPumpDetails = {
+      p70a: {
+        name: "P70A",
+        starts: 25,
+        runtime: "153.20 hrs",
+        odometer: "802.55 hrs",
+        speed: "1760 rpm",
+        alarm: 0,
+      },
+      p70b: {
+        name: "P70B",
+        starts: 12,
+        runtime: "98.40 hrs",
+        odometer: "430.10 hrs",
+        speed: "1745 rpm",
+        alarm: 1,
+      },
+      p71a: {
+        name: "P71A",
+        starts: 7,
+        runtime: "45.00 hrs",
+        odometer: "201.75 hrs",
+        speed: "1720 rpm",
+        alarm: 0,
+      },
+      p71b: {
+        name: "P71B",
+        starts: 18,
+        runtime: "120.80 hrs",
+        odometer: "560.90 hrs",
+        speed: "1755 rpm",
+        alarm: 0,
+      },
+    };
+
+    setSelectedPumpDetail(
+      demoPumpDetails[pumpKey] || {
+        name: pumpName || "BOMBA",
+        starts: 0,
+        runtime: "0.000 hrs",
+        odometer: "0.000 hrs",
+        speed: "0.000 rpm",
+        alarm: 0,
+      }
+    );
+
+    setPumpDetailModalOpen(true);
+  };
+
+  const closePumpDetailModal = () => {
+    setPumpDetailModalOpen(false);
+    setSelectedPumpDetail(null);
+  };
+
   // ====== COMANDOS CABO VIEJO ======
   const [cvCommandModalOpen, setCvCommandModalOpen] = useState(false);
   const [cvPendingCommand, setCvPendingCommand] = useState(null);
@@ -145,170 +204,109 @@ export default function App() {
     setCvWaitingText("Esperando respuesta del PLC...");
   };
 
-
-  const openPumpDetailModal = (pumpKey, pumpName) => {
-  const demoPumpDetails = {
-    p70a: {
-      name: "P70A",
-      starts: 25,
-      runtime: "153.20 hrs",
-      odometer: "802.55 hrs",
-      speed: "1760 rpm",
-      alarm: 0,
-    },
-    p70b: {
-      name: "P70B",
-      starts: 12,
-      runtime: "98.40 hrs",
-      odometer: "430.10 hrs",
-      speed: "1745 rpm",
-      alarm: 1,
-    },
-    p71a: {
-      name: "P71A",
-      starts: 7,
-      runtime: "45.00 hrs",
-      odometer: "201.75 hrs",
-      speed: "1720 rpm",
-      alarm: 0,
-    },
-    p71b: {
-      name: "P71B",
-      starts: 18,
-      runtime: "120.80 hrs",
-      odometer: "560.90 hrs",
-      speed: "1755 rpm",
-      alarm: 0,
-    },
-  };
-
-  setSelectedPumpDetail(
-    demoPumpDetails[pumpKey] || {
-      name: pumpName || "BOMBA",
-      starts: 0,
-      runtime: "0.000 hrs",
-      odometer: "0.000 hrs",
-      speed: "0.000 rpm",
-      alarm: 0,
-    }
-  );
-
-  setPumpDetailModalOpen(true);
-};
-
-const closePumpDetailModal = () => {
-  setPumpDetailModalOpen(false);
-  setSelectedPumpDetail(null);
-};
-
-//Cambio en el status de las bombas (0=off, 1=man, 2=auto)
   const getExpectedStatusValue = (bomba, modo) => {
     if (bomba !== "p70a") return null;
-
-    if (bomba === "off") return 0;
-    if (bomba === "man") return 1;
-    if (bomba === "auto") return 2;
-
+    if (modo === "off") return 0;
+    if (modo === "man") return 1;
+    if (modo === "auto") return 2;
     return null;
-
   };
 
   const confirmCvCommand = async () => {
-  if (!cvPendingCommand) return;
+    if (!cvPendingCommand) return;
 
-  const { bomba, modo } = cvPendingCommand;
-  const expectedStatusValue =
-    modo === "off" ? 0 :
-    modo === "man" ? 1 :
-    modo === "auto" ? 2 :
-    null;
+    const { bomba, modo } = cvPendingCommand;
+    const expectedStatusValue = getExpectedStatusValue(bomba, modo);
 
-  try {
-    setCvCommandModalOpen(false);
-    setCvWaitingText("Enviando comando al PLC...");
-    setCvWaitingModalOpen(true);
+    try {
+      setCvCommandModalOpen(false);
+      setCvWaitingText("Enviando comando al PLC...");
+      setCvWaitingModalOpen(true);
 
-    // primer envío
-    await apiFetch("/api/caboviejo/comando", {
-      method: "POST",
-      body: JSON.stringify({ bomba, modo }),
-    });
-
-    setCvWaitingText("Esperando respuesta del PLC...");
-
-    const start = Date.now();
-    const timeoutMs = 15000;
-
-    // reintento cada 1 segundo
-    const retryInterval = setInterval(() => {
-      apiFetch("/api/caboviejo/comando", {
+      await apiFetch("/api/caboviejo/comando", {
         method: "POST",
         body: JSON.stringify({ bomba, modo }),
-      }).catch((err) => {
-        console.error("Error reintentando comando:", err);
       });
-    }, 1000);
 
-    // polling del status
-    const interval = setInterval(async () => {
-      try {
-        const feedbackRes = await apiFetch("/api/caboviejo/feedback");
-        const feedbackData = await feedbackRes.json();
+      setCvWaitingText("Esperando respuesta del PLC...");
 
-        const statusValue = Number(feedbackData?.[bomba]?.status);
+      const start = Date.now();
+      const timeoutMs = 15000;
 
-        console.log("statusValue:", statusValue, "expected:", expectedStatusValue);
+      const retryInterval = setInterval(() => {
+        apiFetch("/api/caboviejo/comando", {
+          method: "POST",
+          body: JSON.stringify({ bomba, modo }),
+        }).catch((err) => {
+          console.error("Error reintentando comando:", err);
+        });
+      }, 1000);
 
-        if (statusValue === expectedStatusValue) {
+      const interval = setInterval(async () => {
+        try {
+          const feedbackRes = await apiFetch("/api/caboviejo/feedback");
+          const feedbackData = await feedbackRes.json();
+
+          const statusValue = Number(feedbackData?.[bomba]?.status);
+
+          console.log(
+            "statusValue:",
+            statusValue,
+            "expected:",
+            expectedStatusValue
+          );
+
+          if (statusValue === expectedStatusValue) {
+            clearInterval(interval);
+            clearInterval(retryInterval);
+
+            setCvWaitingText("Respuesta asignada");
+
+            setTimeout(() => {
+              closeCvWaitingModal();
+              setCvPendingCommand(null);
+            }, 1200);
+            return;
+          }
+
+          if (Date.now() - start > timeoutMs) {
+            clearInterval(interval);
+            clearInterval(retryInterval);
+
+            setCvWaitingText("Tiempo de espera agotado");
+
+            setTimeout(() => {
+              closeCvWaitingModal();
+              setCvPendingCommand(null);
+            }, 1500);
+          }
+        } catch (err) {
+          console.error("Error leyendo feedback:", err);
+
           clearInterval(interval);
           clearInterval(retryInterval);
 
-          setCvWaitingText("Respuesta asignada");
-
-          setTimeout(() => {
-            closeCvWaitingModal();
-            setCvPendingCommand(null);
-          }, 1200);
-          return;
-        }
-
-        if (Date.now() - start > timeoutMs) {
-          clearInterval(interval);
-          clearInterval(retryInterval);
-
-          setCvWaitingText("Tiempo de espera agotado");
+          setCvWaitingText("Error leyendo status");
 
           setTimeout(() => {
             closeCvWaitingModal();
             setCvPendingCommand(null);
           }, 1500);
         }
-      } catch (err) {
-        console.error("Error leyendo feedback:", err);
+      }, 700);
+    } catch (error) {
+      console.error("Error enviando comando:", error);
 
-        clearInterval(interval);
-        clearInterval(retryInterval);
+      setCvWaitingText(error.message || "Error al enviar comando");
 
-        setCvWaitingText("Error leyendo status");
-
-        setTimeout(() => {
-          closeCvWaitingModal();
-          setCvPendingCommand(null);
-        }, 1500);
-      }
-    }, 700);
-  } catch (error) {
-    console.error("Error enviando comando:", error);
-
-    setCvWaitingText(error.message || "Error al enviar comando");
-
-    setTimeout(() => {
-      closeCvWaitingModal();
-      setCvPendingCommand(null);
-    }, 1500);
-  }
-};
+      setTimeout(() => {
+        closeCvWaitingModal();
+        setCvPendingCommand(null);
+      }, 1500);
+    }
+  };
   // ================================
+  /////////////////////////////////////
 
   const openConfigModal = (tankKey) => {
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
@@ -754,6 +752,7 @@ const closePumpDetailModal = () => {
                 bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
                 onSelectMode={openCvCommandModal}
+                onOpenPumpDetail={openPumpDetailModal}
               />
 
               <FalconeCard
@@ -1221,6 +1220,7 @@ function CaboViejoCard({
   bombasCaboviejo,
   onOpenConfig,
   onSelectMode,
+  onOpenPumpDetail,
 }) {
   return (
     <article className="dashboard-card">
@@ -1234,7 +1234,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70a}
           onSelectMode={onSelectMode}
           pumpKey="p70a"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetail}
         />
 
         <PumpBox
@@ -1243,7 +1243,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70b}
           onSelectMode={onSelectMode}
           pumpKey="p70b"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetail}
         />
 
         <PumpBox
@@ -1252,7 +1252,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71a}
           onSelectMode={onSelectMode}
           pumpKey="p71a"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetail}
         />
 
         <PumpBox
@@ -1261,7 +1261,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71b}
           onSelectMode={onSelectMode}
           pumpKey="p71b"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetail}
         />
       </div>
 
