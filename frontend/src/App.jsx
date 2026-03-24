@@ -156,6 +156,10 @@ export default function App() {
       },
     };
 
+    //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMBA
+
+    const [caboviejoDetalle, setCaboviejoDetalle] = useState({});
+
     setSelectedPumpDetail(
       demoPumpDetails[pumpKey] || {
         name: pumpName || "BOMBA",
@@ -390,6 +394,7 @@ export default function App() {
           setPlcStatus(data.plcStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
+          setCaboviejoDetalle(data.caboviejoDetalle || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
     };
@@ -1409,7 +1414,7 @@ function PumpBox({
 
       <div className="runtime-list">
         <div className="runtime-pill">
-          RUNTIME {name}: {runtime}
+          RUNTIME: {runtime}
         </div>
       </div>
       {/* <div className="pump-detail-modal__alarm-row">

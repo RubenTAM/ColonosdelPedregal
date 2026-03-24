@@ -68,6 +68,13 @@ let caboviejoFeedback = {
   },
 };
 
+let caboviejoDetalle = {
+  p70a: {starts: 0, odometer:0, runtime:0},
+  p70b: {starts: 0, odometer:0, runtime:0},
+  p71a: {starts: 0, odometer:0, runtime:0},
+  p71b: {starts: 0, odometer:0, runtime:0},
+}
+
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
   Planta_Real_1: "planta",
@@ -150,12 +157,34 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_7: "trenC",
 };
 
+//MAPA DE TOPICOS DE POP UP DE CADA BOMBA
+const topicToKeyCaboviejoDetalle = {
+  Caboviejo_P70A_Int_1: {bomba: "p70a", campo:"starts"},
+  Caboviejo_P70A_Real_1: {bomba: "p70a", campo:"odometer"},
+  Caboviejo_P70A_Real_2: {bomba: "p70a", campo:"runtime"},
+
+  Caboviejo_P70B_Int_1: {bomba: "p70b", campo:"starts"},
+  Caboviejo_P70B_Real_1: {bomba: "p70b", campo:"odometer"},
+  Caboviejo_P70B_Real_2: {bomba: "p70b", campo:"runtime"},
+
+  Caboviejo_P71A_Int_1: {bomba: "p71a", campo:"starts"},
+  Caboviejo_P71A_Real_1: {bomba: "p71a", campo:"odometer"},
+  Caboviejo_P71A_Real_2: {bomba: "p71a", campo:"runtime"},
+
+  Caboviejo_P71B_Int_1: {bomba: "p71b", campo:"starts"},
+  Caboviejo_P71B_Real_1: {bomba: "p71b", campo:"odometer"},
+  Caboviejo_P71B_Real_2: {bomba: "p71b", campo:"runtime"},
+}
+//
+
 const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
 const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
 const topicsPlantaBotones = Object.keys(topicToKeyPlantaBotones);
 const topicsCaboviejoStatus = Object.keys(topicToKeyCaboviejoStatus);
+const topicsCaboviejoDetalle = Object.keys(topicToKeyCaboviejoDetalle);
+
 
 const topics = [
   ...topicsNivel,
@@ -164,6 +193,7 @@ const topics = [
   ...topicsBombasCaboviejo,
   ...topicsPlantaBotones,
   ...topicsCaboviejoStatus,
+  ...topicToKeyCaboviejoDetalle,
 ];
 
 const client = mqtt.connect(MQTT_URL);
@@ -184,6 +214,33 @@ client.on("connect", () => {
 
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
+
+  //PARA TAGS EN POP UP
+  if (topicToKeyCaboviejoDetalle[topic]){
+    const {bomba, campo} = topicToKeyCaboviejoDetalle[topic];
+    const texto = message.toString().trim();
+
+    if (!caboviejoDetalle[bomba]){
+      caboviejoDetalle[bomba] = {starts: 0, odometer: 0, runtime:0};
+    }
+
+    let valor;
+
+    if (campo === "starts"){
+      valor =parseInt(texto,10);
+      if (Number.isNaN(valor)) return;
+    } else {
+      valor = parseFloat(texto);
+      if (Number.isNaN(valor)) return;
+    }
+
+    caboviejoDetalle[bomba][campo] = valor;
+
+    console.log(`Detalle ${bomba} -> ${campo}:`,valor);
+  }
+  //
+
+
 
   /* ESTADO ENTERO P70A */
   if (topicToKeyCaboviejoStatus[topic]) {
@@ -513,6 +570,7 @@ app.get("/api/niveles", (req, res) => {
     plcStatus,
     bombasCaboviejo,
     plantaBotones,
+    caboviejoDetalle,
   });
 });
 
