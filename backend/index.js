@@ -192,17 +192,29 @@ client.on("message", (topic, message) => {
 
     if (Number.isNaN(valor)) return;
 
-    caboviejoFeedback[bomba].status = valor;
+    if (!caboviejoFeedback[bomba]) {
+      caboviejoFeedback[bomba] = {
+        status: 0,
+        man: 0,
+        off:0,
+        auto:0,
+        running:0,
+        modoEntero:-1,
+      };
+    }
 
     if (!bombasCaboviejo[bomba]) {
       bombasCaboviejo[bomba] = {
-        man: 0,
-        off: 0,
-        auto: 0,
-        running: 0,
-        modoEntero: -1,
+        man:0,
+        off:0,
+        auto:0,
+        running:0,
+        modoEntero:-1,
       };
     }
+
+    caboviejoFeedback[bomba].status = valor;
+    caboviejoFeedback[bomba].modoEntero = valor;
 
     bombasCaboviejo[bomba].modoEntero = valor;
 
