@@ -193,7 +193,7 @@ const topics = [
   ...topicsBombasCaboviejo,
   ...topicsPlantaBotones,
   ...topicsCaboviejoStatus,
-  ...topicToKeyCaboviejoDetalle,
+  ...topicsCaboviejoDetalle,
 ];
 
 const client = mqtt.connect(MQTT_URL);
