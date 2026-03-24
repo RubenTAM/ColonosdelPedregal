@@ -2138,3 +2138,113 @@ button {
     transform: rotate(360deg);
   }
 }
+
+.pump-box--clickable {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.pump-box--clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.pump-detail-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+  z-index: 1200;
+  overflow: hidden;
+}
+
+.pump-detail-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 14px 18px;
+}
+
+.pump-detail-modal__header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.pump-detail-modal__close {
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.pump-detail-modal__body {
+  padding: 18px 18px 20px;
+  background: #ffffff;
+}
+
+.pump-detail-modal__field {
+  margin-bottom: 14px;
+}
+
+.pump-detail-modal__label {
+  text-align: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1f2937;
+  margin-bottom: 6px;
+}
+
+.pump-detail-modal__value {
+  border: 2px solid #cfd4dc;
+  background: #f8fafc;
+  border-radius: 4px;
+  text-align: center;
+  padding: 12px 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.pump-detail-modal__separator {
+  height: 4px;
+  background: #111827;
+  margin: 12px -18px 14px;
+}
+
+.pump-detail-modal__alarm-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111827;
+}
+
+.pump-detail-modal__led {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid #111827;
+  flex-shrink: 0;
+}
+
+.pump-detail-modal__led--off {
+  background: #f8fafc;
+}
+
+.pump-detail-modal__led--on {
+  background: #dc2626;
+  box-shadow: 0 0 14px rgba(220, 38, 38, 0.65);
+}

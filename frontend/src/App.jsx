@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 const DEFAULT_LEVEL_CONFIG = {
@@ -38,6 +38,8 @@ function apiFetch(url, options = {}) {
 }
 
 export default function App() {
+  const [pumpDetailModalOpen, setPumpDetailModalOpen]=useState(false);
+  const [selectedPumpDetail, setSelectedPumpDetail]= useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -142,6 +144,62 @@ export default function App() {
     setCvWaitingModalOpen(false);
     setCvWaitingText("Esperando respuesta del PLC...");
   };
+
+
+  const openPumpDetailModal = (pumpKey, pumpName) => {
+  const demoPumpDetails = {
+    p70a: {
+      name: "P70A",
+      starts: 25,
+      runtime: "153.20 hrs",
+      odometer: "802.55 hrs",
+      speed: "1760 rpm",
+      alarm: 0,
+    },
+    p70b: {
+      name: "P70B",
+      starts: 12,
+      runtime: "98.40 hrs",
+      odometer: "430.10 hrs",
+      speed: "1745 rpm",
+      alarm: 1,
+    },
+    p71a: {
+      name: "P71A",
+      starts: 7,
+      runtime: "45.00 hrs",
+      odometer: "201.75 hrs",
+      speed: "1720 rpm",
+      alarm: 0,
+    },
+    p71b: {
+      name: "P71B",
+      starts: 18,
+      runtime: "120.80 hrs",
+      odometer: "560.90 hrs",
+      speed: "1755 rpm",
+      alarm: 0,
+    },
+  };
+
+  setSelectedPumpDetail(
+    demoPumpDetails[pumpKey] || {
+      name: pumpName || "BOMBA",
+      starts: 0,
+      runtime: "0.000 hrs",
+      odometer: "0.000 hrs",
+      speed: "0.000 rpm",
+      alarm: 0,
+    }
+  );
+
+  setPumpDetailModalOpen(true);
+};
+
+const closePumpDetailModal = () => {
+  setPumpDetailModalOpen(false);
+  setSelectedPumpDetail(null);
+};
 
 //Cambio en el status de las bombas (0=off, 1=man, 2=auto)
   const getExpectedStatusValue = (bomba, modo) => {
@@ -986,6 +1044,14 @@ export default function App() {
       {cvWaitingModalOpen && (
         <CaboViejoWaitingModal text={cvWaitingText} />
       )}
+
+      {pumpDetailModalOpen && selectedPumpDetail && (
+        <PumpDetailModal
+        pump={selectedPumpDetail}
+        onClose={closePumpDetailModal}
+        />
+)}
+
     </div>
   );
 }
@@ -1168,6 +1234,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70a}
           onSelectMode={onSelectMode}
           pumpKey="p70a"
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1176,6 +1243,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70b}
           onSelectMode={onSelectMode}
           pumpKey="p70b"
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1184,6 +1252,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71a}
           onSelectMode={onSelectMode}
           pumpKey="p71a"
+          onOpenDetail={openPumpDetailModal}
         />
 
         <PumpBox
@@ -1192,12 +1261,16 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71b}
           onSelectMode={onSelectMode}
           pumpKey="p71b"
+          onOpenDetail={openPumpDetailModal}
         />
       </div>
 
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
+
+      
+
     </article>
   );
 }
@@ -1276,6 +1349,7 @@ function PumpBox({
   alert = false,
   onSelectMode,
   pumpKey,
+  onOpenDetail,
 }) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
@@ -1285,7 +1359,17 @@ function PumpBox({
   const stateText = runningActivo ? "ENCENDIDO" : "APAGADO";
 
   return (
-    <div className="pump-box">
+    <div
+      className="pump-box pump-box--clickable"
+      onClick={() => onOpenDetail?.(pumpKey, name)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          onOpenDetail?.(pumpKey, name);
+        }
+      }}
+    >
       <div className="pump-box__name">{name}</div>
 
       <div
@@ -1294,7 +1378,10 @@ function PumpBox({
         {stateText}
       </div>
 
-      <div className="mode-grid">
+      <div
+        className="mode-grid"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}
           onClick={() => onSelectMode?.(pumpKey, "man")}
@@ -1642,6 +1729,58 @@ function CaboViejoWaitingModal({ text }) {
       <div className="cv-waiting-modal">
         <div className="cv-waiting-modal__spinner" />
         <h3>{text}</h3>
+      </div>
+    </>
+  );
+}
+
+function PumpDetailModal({ pump, onClose }) {
+  return (
+    <>
+      <div className="modal-overlay" onClick={onClose} />
+
+      <div className="pump-detail-modal">
+        <div className="pump-detail-modal__header">
+          <h3>{pump.name}</h3>
+          <button className="pump-detail-modal__close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        <div className="pump-detail-modal__body">
+          <div className="pump-detail-modal__field">
+            <div className="pump-detail-modal__label">Number of starts</div>
+            <div className="pump-detail-modal__value">{pump.starts}</div>
+          </div>
+
+          <div className="pump-detail-modal__field">
+            <div className="pump-detail-modal__label">Runtime</div>
+            <div className="pump-detail-modal__value">{pump.runtime}</div>
+          </div>
+
+          <div className="pump-detail-modal__field">
+            <div className="pump-detail-modal__label">Odometer</div>
+            <div className="pump-detail-modal__value">{pump.odometer}</div>
+          </div>
+
+          <div className="pump-detail-modal__separator" />
+
+          <div className="pump-detail-modal__field">
+            <div className="pump-detail-modal__label">Speed</div>
+            <div className="pump-detail-modal__value">{pump.speed}</div>
+          </div>
+
+          <div className="pump-detail-modal__alarm-row">
+            <div
+              className={`pump-detail-modal__led ${
+                Number(pump.alarm) === 1
+                  ? "pump-detail-modal__led--on"
+                  : "pump-detail-modal__led--off"
+              }`}
+            />
+            <span>Alarming Motor</span>
+          </div>
+        </div>
       </div>
     </>
   );
