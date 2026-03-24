@@ -1419,7 +1419,7 @@ function PumpBox({
                   ? "pump-detail-modal__led--on"
                   : "pump-detail-modal__led--off"
               }`}
-            />
+            /> hey
             <span>Alarming Motor</span>
         </div> */}
     </div>
