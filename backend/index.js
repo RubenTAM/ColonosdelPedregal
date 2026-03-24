@@ -560,10 +560,12 @@ app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
   try {
     const { bomba, modo } = req.body;
 
-    if (bomba !== "p70a") {
+    const bombasPermitidas = ["p70a","p70b","p71a","p71b"];
+
+    if (!bombasPermitidas.includes(bomba)){
       return res
-        .status(400)
-        .json({ error: "Por ahora solo está habilitado P70A" });
+      .status(400)
+      .json({error:"Bomba no Permitida"});
     }
 
     if (!["man", "off", "auto"].includes(modo)) {
