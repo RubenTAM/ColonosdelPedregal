@@ -98,6 +98,8 @@ export default function App() {
     trenC: 0,
   });
 
+  const [caboviejoDetalle, setCaboviejoDetalle] = useState({});
+
   const [users, setUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
   const [userMessage, setUserMessage] = useState("");
@@ -158,7 +160,7 @@ export default function App() {
 
     //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMBA
 
-    const [caboviejoDetalle, setCaboviejoDetalle] = useState({});
+    
 
     setSelectedPumpDetail(
       demoPumpDetails[pumpKey] || {
