@@ -388,7 +388,7 @@ export default function App() {
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
-          // setBombasCaboviejo(data.bombasCaboviejo || {});
+          setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
