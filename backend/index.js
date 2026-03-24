@@ -111,6 +111,9 @@ const topicToKeyBombasCaboviejo = {
 /* TOPIC MQTT - ESTADO ENTERO P70A */
 const topicToKeyCaboviejoStatus = {
   Caboviejo_P70A_Int_2: { bomba: "p70a" },
+  Caboviejo_P70B_Int_2: { bomba: "p70b" },
+  Caboviejo_P71A_Int_2: { bomba: "p71a" },
+  Caboviejo_P71B_Int_2: { bomba: "p71b" },
 };
 
 /* COMANDOS A PLC - PRUEBA SOLO P70A */
@@ -119,9 +122,21 @@ const commandTopicCaboviejo = {
     man: "Caboviejo_P70A_R_Bool_2",
     off: "Caboviejo_P70A_R_Bool_3",
     auto: "Caboviejo_P70A_R_Bool_4",
-    // man: "R_Bool_2",
-    // off: "R_Bool_3",
-    // auto: "R_Bool_4",
+  },
+  p70b: {
+    man: "Caboviejo_P70B_R_Bool_2",
+    off: "Caboviejo_P70B_R_Bool_3",
+    auto: "Caboviejo_P70B_R_Bool_4",
+  },
+  p71a: {
+    man: "Caboviejo_P71A_R_Bool_2",
+    off: "Caboviejo_P71A_R_Bool_3",
+    auto: "Caboviejo_P71A_R_Bool_4",
+  },
+  p71b: {
+    man: "Caboviejo_P71B_R_Bool_2",
+    off: "Caboviejo_P71B_R_Bool_3",
+    auto: "Caboviejo_P71B_R_Bool_4",
   },
 };
 
