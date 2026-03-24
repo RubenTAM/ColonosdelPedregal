@@ -1191,7 +1191,7 @@ function CaboViejoCard({
   bombasCaboviejo,
   onOpenConfig,
   onSelectMode,
-  onOpenPumpDetail,
+  onOpenPumpDetailModal,
 }) {
   return (
     <article className="dashboard-card">
@@ -1205,7 +1205,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70a}
           onSelectMode={onSelectMode}
           pumpKey="p70a"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetailModal}
         />
 
         <PumpBox
@@ -1214,7 +1214,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p70b}
           onSelectMode={onSelectMode}
           pumpKey="p70b"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetailModal}
         />
 
         <PumpBox
@@ -1223,7 +1223,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71a}
           onSelectMode={onSelectMode}
           pumpKey="p71a"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetailModal}
         />
 
         <PumpBox
@@ -1232,7 +1232,7 @@ function CaboViejoCard({
           modes={bombasCaboviejo.p71b}
           onSelectMode={onSelectMode}
           pumpKey="p71b"
-          onOpenDetail={openPumpDetailModal}
+          onOpenDetail={onOpenPumpDetailModal}
         />
       </div>
 
