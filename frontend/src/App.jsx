@@ -1763,14 +1763,14 @@ function PumpDetailModal({ pump, onClose }) {
             <div className="pump-detail-modal__value">{pump.odometer}</div>
           </div>
 
-          <div className="pump-detail-modal__separator" />
+          {/* <div className="pump-detail-modal__separator" />
 
           <div className="pump-detail-modal__field">
             <div className="pump-detail-modal__label">Speed</div>
             <div className="pump-detail-modal__value">{pump.speed}</div>
-          </div>
+          </div> */}
 
-          <div className="pump-detail-modal__alarm-row">
+          {/* <div className="pump-detail-modal__alarm-row">
             <div
               className={`pump-detail-modal__led ${
                 Number(pump.alarm) === 1
@@ -1779,7 +1779,7 @@ function PumpDetailModal({ pump, onClose }) {
               }`}
             />
             <span>Alarming Motor</span>
-          </div>
+          </div> */}
         </div>
       </div>
     </>
