@@ -1191,7 +1191,7 @@ function CaboViejoCard({
   bombasCaboviejo,
   onOpenConfig,
   onSelectMode,
-  onOpenPumpDetailModal,
+  onOpenPumpDetail,
 }) {
   return (
     <article className="dashboard-card">
