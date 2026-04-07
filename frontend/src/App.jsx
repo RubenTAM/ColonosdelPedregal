@@ -1,4 +1,4 @@
-import { use, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
 const DEFAULT_LEVEL_CONFIG = {
@@ -37,12 +37,7 @@ function apiFetch(url, options = {}) {
   });
 }
 
-////////////////////////////////////////
-
 export default function App() {
-  const [pumpDetailModalOpen, setPumpDetailModalOpen] = useState(false);
-  const [selectedPumpDetail, setSelectedPumpDetail] = useState(null);
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 900);
   const [activeView, setActiveView] = useState("dashboard");
@@ -83,10 +78,10 @@ export default function App() {
   });
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
-    p70a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-    p70b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-    p71a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-    p71b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+    p70a: { man: 0, off: 0, auto: 1, running: 0 },
+    p70b: { man: 0, off: 0, auto: 1, running: 0 },
+    p71a: { man: 0, off: 0, auto: 1, running: 0 },
+    p71b: { man: 0, off: 0, auto: 1, running: 0 },
   });
 
   const [plantaBotones, setPlantaBotones] = useState({
@@ -97,8 +92,6 @@ export default function App() {
     trenB: 0,
     trenC: 0,
   });
-
-  const [caboviejoDetalle, setCaboviejoDetalle] = useState({});
 
   const [users, setUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
@@ -116,161 +109,11 @@ export default function App() {
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
+
   const [configForm, setConfigForm] = useState({
     min: "",
     max: "",
   });
-
-  // ====== DETALLE DE BOMBAS ======
-  const openPumpDetailModal = (pumpKey, pumpName) => {
-    const detalle = caboviejoDetalle[pumpKey] || {};
-      setSelectedPumpDetail({
-        pumpKey,
-        name: pumpName,
-        starts: detalle.starts || 0,
-        runtime: `${Number(detalle.runtime || 0).toFixed(2)} hrs`,
-        odometer: `${Number(detalle.odometer || 0).toFixed(2)} hrs`,
-        speed: "0 rpm",
-        alarm: 0,
-      })
-       
-      setPumpDetailModalOpen(true);
-      
-
-    //RUNTIME Y DEMAS INFORMACION DE POP UP DE BOMB    
-  };
-
-  const closePumpDetailModal = () => {
-    setPumpDetailModalOpen(false);
-    setSelectedPumpDetail(null);
-  };
-
-  // ====== COMANDOS CABO VIEJO ======
-  const [cvCommandModalOpen, setCvCommandModalOpen] = useState(false);
-  const [cvPendingCommand, setCvPendingCommand] = useState(null);
-
-  const [cvWaitingModalOpen, setCvWaitingModalOpen] = useState(false);
-  const [cvWaitingText, setCvWaitingText] = useState(
-    "Esperando respuesta del PLC..."
-  );
-
-  const openCvCommandModal = (bomba, modo) => {
-    setCvPendingCommand({ bomba, modo });
-    setCvCommandModalOpen(true);
-  };
-
-  const closeCvCommandModal = () => {
-    setCvCommandModalOpen(false);
-    setCvPendingCommand(null);
-  };
-
-  const closeCvWaitingModal = () => {
-    setCvWaitingModalOpen(false);
-    setCvWaitingText("Esperando respuesta del PLC...");
-  };
-
-  const getExpectedStatusValue = (bomba, modo) => {
-    if (modo === "off") return 0;
-    if (modo === "man") return 1;
-    if (modo === "auto") return 2;
-    return null;
-  };
-
-  const confirmCvCommand = async () => {
-    if (!cvPendingCommand) return;
-
-    const { bomba, modo } = cvPendingCommand;
-    const expectedStatusValue = getExpectedStatusValue(bomba, modo);
-
-    try {
-      setCvCommandModalOpen(false);
-      setCvWaitingText("Enviando comando al PLC...");
-      setCvWaitingModalOpen(true);
-
-      await apiFetch("/api/caboviejo/comando", {
-        method: "POST",
-        body: JSON.stringify({ bomba, modo }),
-      });
-
-      setCvWaitingText("Esperando respuesta del PLC...");
-
-      const start = Date.now();
-      const timeoutMs = 15000;
-
-      const retryInterval = setInterval(() => {
-        apiFetch("/api/caboviejo/comando", {
-          method: "POST",
-          body: JSON.stringify({ bomba, modo }),
-        }).catch((err) => {
-          console.error("Error reintentando comando:", err);
-        });
-      }, 1000);
-
-      const interval = setInterval(async () => {
-        try {
-          const feedbackRes = await apiFetch("/api/caboviejo/feedback");
-          const feedbackData = await feedbackRes.json();
-
-          const statusValue = Number(feedbackData?.[bomba]?.status);
-
-          console.log(
-            "statusValue:",
-            statusValue,
-            "expected:",
-            expectedStatusValue
-          );
-
-          if (statusValue === expectedStatusValue) {
-            clearInterval(interval);
-            clearInterval(retryInterval);
-
-            setCvWaitingText("Respuesta asignada");
-
-            setTimeout(() => {
-              closeCvWaitingModal();
-              setCvPendingCommand(null);
-            }, 1200);
-            return;
-          }
-
-          if (Date.now() - start > timeoutMs) {
-            clearInterval(interval);
-            clearInterval(retryInterval);
-
-            setCvWaitingText("Tiempo de espera agotado");
-
-            setTimeout(() => {
-              closeCvWaitingModal();
-              setCvPendingCommand(null);
-            }, 1500);
-          }
-        } catch (err) {
-          console.error("Error leyendo feedback:", err);
-
-          clearInterval(interval);
-          clearInterval(retryInterval);
-
-          setCvWaitingText("Error leyendo status");
-
-          setTimeout(() => {
-            closeCvWaitingModal();
-            setCvPendingCommand(null);
-          }, 1500);
-        }
-      }, 700);
-    } catch (error) {
-      console.error("Error enviando comando:", error);
-
-      setCvWaitingText(error.message || "Error al enviar comando");
-
-      setTimeout(() => {
-        closeCvWaitingModal();
-        setCvPendingCommand(null);
-      }, 1500);
-    }
-  };
-  // ================================
-  /////////////////////////////////////
 
   const openConfigModal = (tankKey) => {
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
@@ -348,19 +191,12 @@ export default function App() {
 
     const obtenerNiveles = () => {
       fetch("/api/niveles")
-        .then(async(res) => {
-          if (!res.ok){
-            const texto = await res.text();
-            throw new Error (`HTTP ${res.status} - ${texto.slice(0, 120)}`);
-          }
-          return res.json();
-        })
+        .then((res) => res.json())
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
-          setCaboviejoDetalle(data.caboviejoDetalle || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
     };
@@ -654,7 +490,7 @@ export default function App() {
           ©️ 2025 Colonos del Pedregal v2.0.0
         </div>
       </aside>
-      
+
       <main className={`main ${sidebarOpen && !isMobile ? "" : "main--full"}`}>
         <header className="topbar">
           <div className="topbar__left">
@@ -722,8 +558,6 @@ export default function App() {
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
-                onSelectMode={openCvCommandModal}
-                onOpenPumpDetail={openPumpDetailModal}
               />
 
               <FalconeCard
@@ -1002,26 +836,6 @@ export default function App() {
           onSave={saveTankConfig}
         />
       )}
-
-      {cvCommandModalOpen && cvPendingCommand && (
-        <CaboViejoCommandModal
-          command={cvPendingCommand}
-          onClose={closeCvCommandModal}
-          onConfirm={confirmCvCommand}
-        />
-      )}
-
-      {cvWaitingModalOpen && (
-        <CaboViejoWaitingModal text={cvWaitingText} />
-      )}
-
-      {pumpDetailModalOpen && selectedPumpDetail && (
-        <PumpDetailModal
-        pump={selectedPumpDetail}
-        onClose={closePumpDetailModal}
-        />
-)}
-
     </div>
   );
 }
@@ -1170,7 +984,7 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
 
       <div className="plant-reset-row">
         <button className="plant-reset-card" disabled={noDisponible}>
-          ⟲ RESET DE TECNOALL
+          ⟲ RESET CONTADORES
         </button>
       </div>
 
@@ -1190,8 +1004,6 @@ function CaboViejoCard({
   p71b,
   bombasCaboviejo,
   onOpenConfig,
-  onSelectMode,
-  onOpenPumpDetail,
 }) {
   return (
     <article className="dashboard-card">
@@ -1199,49 +1011,15 @@ function CaboViejoCard({
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
-        <PumpBox
-          name="P70A"
-          runtime={p70a}
-          modes={bombasCaboviejo.p70a}
-          onSelectMode={onSelectMode}
-          pumpKey="p70a"
-          onOpenDetail={onOpenPumpDetail}
-        />
-
-        <PumpBox
-          name="P70B"
-          runtime={p70b}
-          modes={bombasCaboviejo.p70b}
-          onSelectMode={onSelectMode}
-          pumpKey="p70b"
-          onOpenDetail={onOpenPumpDetail}
-        />
-
-        <PumpBox
-          name="P71A"
-          runtime={p71a}
-          modes={bombasCaboviejo.p71a}
-          onSelectMode={onSelectMode}
-          pumpKey="p71a"
-          onOpenDetail={onOpenPumpDetail}
-        />
-
-        <PumpBox
-          name="P71B"
-          runtime={p71b}
-          modes={bombasCaboviejo.p71b}
-          onSelectMode={onSelectMode}
-          pumpKey="p71b"
-          onOpenDetail={onOpenPumpDetail}
-        />
+        <PumpBox name="P70A" runtime={p70a} modes={bombasCaboviejo.p70a} />
+        <PumpBox name="P70B" runtime={p70b} modes={bombasCaboviejo.p70b} />
+        <PumpBox name="P71A" runtime={p71a} modes={bombasCaboviejo.p71a} />
+        <PumpBox name="P71B" runtime={p71b} modes={bombasCaboviejo.p71b} />
       </div>
 
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
-
-      
-
     </article>
   );
 }
@@ -1313,15 +1091,7 @@ function CardHeader({ title, onOpenConfig }) {
   );
 }
 
-function PumpBox({
-  name,
-  runtime,
-  modes = {},
-  alert = false,
-  onSelectMode,
-  pumpKey,
-  onOpenDetail,
-}) {
+function PumpBox({ name, runtime, modes = {}, alert = false }) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
   const autoActivo = Number(modes.auto) === 1;
@@ -1330,17 +1100,7 @@ function PumpBox({
   const stateText = runningActivo ? "ENCENDIDO" : "APAGADO";
 
   return (
-    <div
-      className="pump-box pump-box--clickable"
-      onClick={() => onOpenDetail?.(pumpKey, name)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          onOpenDetail?.(pumpKey, name);
-        }
-      }}
-    >
+    <div className="pump-box">
       <div className="pump-box__name">{name}</div>
 
       <div
@@ -1349,50 +1109,25 @@ function PumpBox({
         {stateText}
       </div>
 
-      <div
-        className="mode-grid"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}
-          onClick={() => onSelectMode?.(pumpKey, "man")}
-          type="button"
-        >
+      <div className="mode-grid">
+        <button className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}>
           HAND
         </button>
 
-        <button
-          className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}
-          onClick={() => onSelectMode?.(pumpKey, "off")}
-          type="button"
-        >
+        <button className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}>
           OFF
         </button>
 
-        <button
-          className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}
-          onClick={() => onSelectMode?.(pumpKey, "auto")}
-          type="button"
-        >
+        <button className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}>
           AUTO
         </button>
       </div>
 
       <div className="runtime-list">
         <div className="runtime-pill">
-          RUNTIME: {runtime}
+          RUNTIME {name}: {runtime}
         </div>
       </div>
-      {/* <div className="pump-detail-modal__alarm-row">
-            <div
-              className={`pump-detail-modal__led ${
-                Number(pump.alarm) === 1
-                  ? "pump-detail-modal__led--on"
-                  : "pump-detail-modal__led--off"
-              }`}
-            /> hey
-            <span>Alarming Motor</span>
-        </div> */}
     </div>
   );
 }
@@ -1567,15 +1302,23 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
 
   const renderBypassButtons = () => {
     if (tankKey === "planta") {
-      return <button className="level-modal__bypass">BYPASS PLANTA</button>;
+      return (
+        <button className="level-modal__bypass">
+          BYPASS PLANTA
+        </button>
+      );
     }
 
     if (tankKey === "cabo_viejo") {
       return (
         <div className="level-modal__bypass-group">
-          <button className="level-modal__bypass">BYPASS FALCONE</button>
+          <button className="level-modal__bypass">
+            BYPASS FALCONE
+          </button>
 
-          <button className="level-modal__bypass">BYPASS CUADRADA</button>
+          <button className="level-modal__bypass">
+            BYPASS CUADRADA
+          </button>
         </div>
       );
     }
@@ -1625,131 +1368,6 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
           </button>
 
           {renderBypassButtons()}
-        </div>
-      </div>
-    </>
-  );
-}
-
-function CaboViejoCommandModal({ command, onClose, onConfirm }) {
-  const pumpNames = {
-    p70a: "P70A",
-    p70b: "P70B",
-    p71a: "P71A",
-    p71b: "P71B",
-  };
-
-  const modeNames = {
-    man: "HAND",
-    off: "OFF",
-    auto: "AUTO",
-  };
-
-  return (
-    <>
-      <div className="modal-overlay" onClick={onClose} />
-
-      <div className="cv-command-modal">
-        <div className="cv-command-modal__header">
-          <h3>Confirmar comando</h3>
-          <button className="cv-command-modal__close" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        <div className="cv-command-modal__body">
-          <p className="cv-command-modal__text">
-            ¿Estás seguro de mandar este comando al PLC?
-          </p>
-
-          <div className="cv-command-modal__summary">
-            <div className="cv-command-modal__row">
-              <span>Bomba:</span>
-              <strong>{pumpNames[command.bomba]}</strong>
-            </div>
-
-            <div className="cv-command-modal__row">
-              <span>Modo:</span>
-              <strong>{modeNames[command.modo]}</strong>
-            </div>
-          </div>
-
-          <div className="cv-command-modal__actions">
-            <button
-              className="cv-command-modal__btn cv-command-modal__btn--cancel"
-              onClick={onClose}
-              type="button"
-            >
-              Cancelar
-            </button>
-
-            <button
-              className="cv-command-modal__btn cv-command-modal__btn--confirm"
-              onClick={() => {
-                // alert("CLICK EN SI ENVIAR");
-                console.log("CLICK EN SI ENVIAR");
-                console.log("onConfirm:", onConfirm);
-                onConfirm?.();
-              }}
-              type="button"
-            >
-              Sí, enviar
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function CaboViejoWaitingModal({ text }) {
-  return (
-    <>
-      <div className="modal-overlay" />
-
-      <div className="cv-waiting-modal">
-        <div className="cv-waiting-modal__spinner" />
-        <h3>{text}</h3>
-      </div>
-    </>
-  );
-}
-
-function PumpDetailModal({ pump, onClose }) {
-  return (
-    <>
-      <div className="modal-overlay" onClick={onClose} />
-
-      <div className="pump-detail-modal">
-        <div className="pump-detail-modal__header">
-          <h3>{pump.name}</h3>
-          <button className="pump-detail-modal__close" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-
-        <div className="pump-detail-modal__body">
-          <div className="pump-detail-modal__field">
-            <div className="pump-detail-modal__label">Number of starts</div>
-            <div className="pump-detail-modal__value">{pump.starts}</div>
-          </div>
-
-          <div className="pump-detail-modal__field">
-            <div className="pump-detail-modal__label">Runtime</div>
-            <div className="pump-detail-modal__value">{pump.runtime}</div>
-          </div>
-
-          <div className="pump-detail-modal__field">
-            <div className="pump-detail-modal__label">Odometer</div>
-            <div className="pump-detail-modal__value">{pump.odometer}</div>
-          </div>
-
-          {/* <div className="pump-detail-modal__separator" />
-
-          <div className="pump-detail-modal__field">
-            <div className="pump-detail-modal__label">Speed</div>
-            <div className="pump-detail-modal__value">{pump.speed}</div>
-          </div> */}
         </div>
       </div>
     </>

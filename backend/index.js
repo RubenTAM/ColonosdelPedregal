@@ -12,9 +12,8 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = 3001;
-const MQTT_URL = "mqtt://64.23.155.31:1883";
+const MQTT_URL = "mqtt://18.216.64.219:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
-const COMMAND_PULSE_MS = 300;
 
 /* ESTADO EN MEMORIA */
 let niveles = {
@@ -44,10 +43,10 @@ let plcStatus = {
 };
 
 let bombasCaboviejo = {
-  p70a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-  p70b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-  p71a: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
-  p71b: { man: 0, off: 0, auto: 0, running: 0, modoEntero: -1 },
+  p70a: { man: 0, off: 0, auto: 1, running: 0 },
+  p70b: { man: 0, off: 0, auto: 1, running: 0 },
+  p71a: { man: 0, off: 0, auto: 1, running: 0 },
+  p71b: { man: 0, off: 0, auto: 1, running: 0 },
 };
 
 let plantaBotones = {
@@ -61,24 +60,10 @@ let plantaBotones = {
 
 let guardandoHistorico = false;
 
-/* ESTADO DE FEEDBACK / ASIGNACIÓN PARA COMANDOS */
-let caboviejoFeedback = {
-  p70a: {
-    status: -1, // 0=off, 1=man, 2=auto
-  },
-};
-
-let caboviejoDetalle = {
-  p70a: {starts: 0, odometer:0, runtime:0},
-  p70b: {starts: 0, odometer:0, runtime:0},
-  p71a: {starts: 0, odometer:0, runtime:0},
-  p71b: {starts: 0, odometer:0, runtime:0},
-}
-
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
   Planta_Real_1: "planta",
-  Caboviejo_Nivel_Real_1: "cabo_viejo",
+  Caboviejo_Real_1: "cabo_viejo",
   Falcone_Real_1: "falcone",
   Cinco_Real_1: "cinco",
   Seis_Real_1: "seis",
@@ -107,47 +92,30 @@ const topicToKeyRuntime = {
   Caboviejo_Real_5: "runtime_p71b",
 };
 
-/* TOPICS MQTT - ESTADO RUNNING CABO VIEJO */
+/* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
 const topicToKeyBombasCaboviejo = {
+  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
+  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
+  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
   Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
+
+  Caboviejo_Bool_5: { bomba: "p70b", campo: "man" },
+  Caboviejo_Bool_6: { bomba: "p70b", campo: "off" },
+  Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
   Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
+
+  Caboviejo_Bool_8: { bomba: "p71a", campo: "man" },
+  Caboviejo_Bool_9: { bomba: "p71a", campo: "off" },
+  Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
   Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
+
+  Caboviejo_Bool_11: { bomba: "p71b", campo: "man" },
+  Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
+  Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
 
-/* TOPIC MQTT - ESTADO ENTERO P70A */
-const topicToKeyCaboviejoStatus = {
-  Caboviejo_P70A_Int_2: { bomba: "p70a" },
-  Caboviejo_P70B_Int_2: { bomba: "p70b" },
-  Caboviejo_P71A_Int_2: { bomba: "p71a" },
-  Caboviejo_P71B_Int_2: { bomba: "p71b" },
-};
-
-/* COMANDOS A PLC - PRUEBA SOLO P70A */
-const commandTopicCaboviejo = {
-  p70a: {
-    man: "Caboviejo_P70A_R_Bool_2",
-    off: "Caboviejo_P70A_R_Bool_3",
-    auto: "Caboviejo_P70A_R_Bool_4",
-  },
-  p70b: {
-    man: "Caboviejo_P70B_R_Bool_2",
-    off: "Caboviejo_P70B_R_Bool_3",
-    auto: "Caboviejo_P70B_R_Bool_4",
-  },
-  p71a: {
-    man: "Caboviejo_P71A_R_Bool_2",
-    off: "Caboviejo_P71A_R_Bool_3",
-    auto: "Caboviejo_P71A_R_Bool_4",
-  },
-  p71b: {
-    man: "Caboviejo_P71B_R_Bool_2",
-    off: "Caboviejo_P71B_R_Bool_3",
-    auto: "Caboviejo_P71B_R_Bool_4",
-  },
-};
-
-/* TOPICS PLANTA ESTADOS */
+// TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {
   Planta_Bool_2: "bombaA",
   Planta_Bool_3: "bombaB",
@@ -157,34 +125,11 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_7: "trenC",
 };
 
-//MAPA DE TOPICOS DE POP UP DE CADA BOMBA
-const topicToKeyCaboviejoDetalle = {
-  Caboviejo_P70A_Int_1: {bomba: "p70a", campo:"starts"},
-  Caboviejo_P70A_Real_1: {bomba: "p70a", campo:"odometer"},
-  Caboviejo_P70A_Real_2: {bomba: "p70a", campo:"runtime"},
-
-  Caboviejo_P70B_Int_1: {bomba: "p70b", campo:"starts"},
-  Caboviejo_P70B_Real_1: {bomba: "p70b", campo:"odometer"},
-  Caboviejo_P70B_Real_2: {bomba: "p70b", campo:"runtime"},
-
-  Caboviejo_P71A_Int_1: {bomba: "p71a", campo:"starts"},
-  Caboviejo_P71A_Real_1: {bomba: "p71a", campo:"odometer"},
-  Caboviejo_P71A_Real_2: {bomba: "p71a", campo:"runtime"},
-
-  Caboviejo_P71B_Int_1: {bomba: "p71b", campo:"starts"},
-  Caboviejo_P71B_Real_1: {bomba: "p71b", campo:"odometer"},
-  Caboviejo_P71B_Real_2: {bomba: "p71b", campo:"runtime"},
-}
-//
-
 const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
 const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
 const topicsPlantaBotones = Object.keys(topicToKeyPlantaBotones);
-const topicsCaboviejoStatus = Object.keys(topicToKeyCaboviejoStatus);
-const topicsCaboviejoDetalle = Object.keys(topicToKeyCaboviejoDetalle);
-
 
 const topics = [
   ...topicsNivel,
@@ -192,8 +137,6 @@ const topics = [
   ...topicsRuntime,
   ...topicsBombasCaboviejo,
   ...topicsPlantaBotones,
-  ...topicsCaboviejoStatus,
-  ...topicsCaboviejoDetalle,
 ];
 
 const client = mqtt.connect(MQTT_URL);
@@ -215,77 +158,7 @@ client.on("connect", () => {
 client.on("message", (topic, message) => {
   const texto = message.toString().trim();
 
-  //PARA TAGS EN POP UP
-  if (topicToKeyCaboviejoDetalle[topic]){
-    const {bomba, campo} = topicToKeyCaboviejoDetalle[topic];
-    const texto = message.toString().trim();
-
-    if (!caboviejoDetalle[bomba]){
-      caboviejoDetalle[bomba] = {starts: 0, odometer: 0, runtime:0};
-    }
-
-    let valor;
-
-    if (campo === "starts"){
-      valor =parseInt(texto,10);
-      if (Number.isNaN(valor)) return;
-    } else {
-      valor = parseFloat(texto);
-      if (Number.isNaN(valor)) return;
-    }
-
-    caboviejoDetalle[bomba][campo] = valor;
-
-    console.log(`Detalle ${bomba} -> ${campo}:`,valor);
-  }
-  //
-
-
-
-  /* ESTADO ENTERO P70A */
-  if (topicToKeyCaboviejoStatus[topic]) {
-    const { bomba } = topicToKeyCaboviejoStatus[topic];
-    const valor = parseInt(texto, 10);
-
-    if (Number.isNaN(valor)) return;
-
-    if (!caboviejoFeedback[bomba]) {
-      caboviejoFeedback[bomba] = {
-        status: 0,
-        man: 0,
-        off:0,
-        auto:0,
-        running:0,
-        modoEntero:-1,
-      };
-    }
-
-    if (!bombasCaboviejo[bomba]) {
-      bombasCaboviejo[bomba] = {
-        man:0,
-        off:0,
-        auto:0,
-        running:0,
-        modoEntero:-1,
-      };
-    }
-
-    caboviejoFeedback[bomba].status = valor;
-    caboviejoFeedback[bomba].modoEntero = valor;
-
-    bombasCaboviejo[bomba].modoEntero = valor;
-
-    // 0 = off, 1 = man, 2 = auto
-    bombasCaboviejo[bomba].man = valor === 1 ? 1 : 0;
-    bombasCaboviejo[bomba].off = valor === 0 ? 1 : 0;
-    bombasCaboviejo[bomba].auto = valor === 2 ? 1 : 0;
-
-    console.log(`Estado entero ${bomba}:`, valor);
-    console.log("Estado visual actual:", bombasCaboviejo[bomba]);
-    return;
-  }
-
-  /* BOTONES PLANTA */
+    /* BOTONES PLANTA */
   if (topicToKeyPlantaBotones[topic]) {
     const key = topicToKeyPlantaBotones[topic];
 
@@ -298,7 +171,7 @@ client.on("message", (topic, message) => {
     return;
   }
 
-  /* ESTADO RUNNING CABO VIEJO */
+    /* BOTONES Y ESTADO DE BOMBAS CABO VIEJO */
   if (topicToKeyBombasCaboviejo[topic]) {
     const { bomba, campo } = topicToKeyBombasCaboviejo[topic];
 
@@ -437,17 +310,13 @@ app.post("/api/auth/login", (req, res) => {
       }
 
       if (!user) {
-        return res
-          .status(401)
-          .json({ error: "Usuario o contraseña incorrectos" });
+        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
       }
 
       const valid = bcrypt.compareSync(password, user.password_hash);
 
       if (!valid) {
-        return res
-          .status(401)
-          .json({ error: "Usuario o contraseña incorrectos" });
+        return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
       }
 
       usersDb.run(
@@ -563,6 +432,7 @@ app.get("/api/login-logs", verifyToken, (req, res) => {
 });
 
 /* ---------- RUTAS DE NIVELES LIBRES ---------- */
+/* ESTO ES LO IMPORTANTE PARA NO ROMPER MQTT/DASHBOARD */
 
 app.get("/api/niveles", (req, res) => {
   res.json({
@@ -570,7 +440,6 @@ app.get("/api/niveles", (req, res) => {
     plcStatus,
     bombasCaboviejo,
     plantaBotones,
-    caboviejoDetalle,
   });
 });
 
@@ -623,60 +492,6 @@ app.get("/api/cabo-viejo", (req, res) => {
   );
 });
 
-/* ---------- COMANDO CABO VIEJO P70A ---------- */
-
-app.post("/api/caboviejo/comando", verifyToken, (req, res) => {
-  console.log("COMANDO RECIBIDO:", req.body);
-  try {
-    const { bomba, modo } = req.body;
-
-    const bombasPermitidas = ["p70a","p70b","p71a","p71b"];
-
-    if (!bombasPermitidas.includes(bomba)){
-      return res
-      .status(400)
-      .json({error:"Bomba no Permitida"});
-    }
-
-    if (!["man", "off", "auto"].includes(modo)) {
-      return res.status(400).json({ error: "Modo inválido" });
-    }
-
-    const topicComando = commandTopicCaboviejo[bomba]?.[modo];
-
-    if (!topicComando) {
-      return res
-        .status(400)
-        .json({ error: "No se encontró topic de comando" });
-    }
-
-    client.publish(topicComando, "1", { qos: 0, retain: false });
-    console.log(`Pulso ON -> ${topicComando}: 1`);
-
-    setTimeout(() => {
-      client.publish(topicComando, "0", { qos: 0, retain: false });
-      console.log(`Pulso OFF -> ${topicComando}: 0`);
-    }, COMMAND_PULSE_MS);
-
-    return res.json({
-      ok: true,
-      bomba,
-      modo,
-      topicComando,
-      pulseMs: COMMAND_PULSE_MS,
-      message: "Comando enviado correctamente",
-    });
-  } catch (error) {
-    console.error("Error en comando Cabo Viejo:", error);
-    return res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
-
-app.get("/api/caboviejo/feedback", verifyToken, (req, res) => {
-  res.json(caboviejoFeedback);
-});
-
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
 });
-
