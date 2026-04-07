@@ -370,6 +370,30 @@ button {
     0 10px 22px rgba(62, 96, 148, 0.14),
     0 4px 10px rgba(62, 96, 148, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.35s ease;
+}
+
+.gauge--low {
+  border-color: #ff8f70;
+  box-shadow:
+    0 10px 22px rgba(211, 110, 71, 0.18),
+    0 4px 10px rgba(62, 96, 148, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+}
+
+.gauge--mid {
+  border-color: #5e93ef;
+}
+
+.gauge--high {
+  border-color: #52b883;
+  box-shadow:
+    0 10px 24px rgba(76, 151, 112, 0.18),
+    0 4px 10px rgba(62, 96, 148, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
 }
 
 .gauge__inner {
@@ -387,7 +411,17 @@ button {
   bottom: 0;
   overflow: hidden;
   background: linear-gradient(180deg, #9fc3ff 0%, #6d98ea 100%);
-  transition: height 0.45s ease;
+  transition:
+    height 0.55s ease,
+    background 0.35s ease;
+}
+
+.gauge--low .gauge__water {
+  background: linear-gradient(180deg, #ffc2a8 0%, #f58758 100%);
+}
+
+.gauge--high .gauge__water {
+  background: linear-gradient(180deg, #9ce2c0 0%, #4daf7d 100%);
 }
 
 .gauge__wave {
@@ -442,6 +476,15 @@ button {
   letter-spacing: -0.02em;
   z-index: 5;
   text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  transition: color 0.35s ease;
+}
+
+.gauge--low .gauge__value {
+  color: #8c3d21;
+}
+
+.gauge--high .gauge__value {
+  color: #215a3f;
 }
 
 /* BUTTONS */
@@ -718,6 +761,30 @@ button {
     0 8px 18px rgba(62, 96, 148, 0.12),
     0 4px 10px rgba(62, 96, 148, 0.08),
     inset 0 1px 0 rgba(255,255,255,0.96);
+  transition:
+    border-color 0.35s ease,
+    box-shadow 0.35s ease,
+    transform 0.35s ease;
+}
+
+.mini-gauge--low {
+  border-color: #ff8f70;
+  box-shadow:
+    0 8px 18px rgba(211, 110, 71, 0.18),
+    0 4px 10px rgba(62, 96, 148, 0.08),
+    inset 0 1px 0 rgba(255,255,255,0.96);
+}
+
+.mini-gauge--mid {
+  border-color: #5e93ef;
+}
+
+.mini-gauge--high {
+  border-color: #52b883;
+  box-shadow:
+    0 8px 18px rgba(76, 151, 112, 0.18),
+    0 4px 10px rgba(62, 96, 148, 0.08),
+    inset 0 1px 0 rgba(255,255,255,0.96);
 }
 
 .mini-gauge__inner {
@@ -735,7 +802,17 @@ button {
   bottom: 0;
   overflow: hidden;
   background: linear-gradient(180deg, #9fc3ff 0%, #6d98ea 100%);
-  transition: height 0.45s ease;
+  transition:
+    height 0.55s ease,
+    background 0.35s ease;
+}
+
+.mini-gauge--low .mini-gauge__water {
+  background: linear-gradient(180deg, #ffc2a8 0%, #f58758 100%);
+}
+
+.mini-gauge--high .mini-gauge__water {
+  background: linear-gradient(180deg, #9ce2c0 0%, #4daf7d 100%);
 }
 
 .mini-gauge__wave {
@@ -788,6 +865,15 @@ button {
   font-size: 15px;
   font-weight: 800;
   z-index: 6;
+  transition: color 0.35s ease;
+}
+
+.mini-gauge--low .mini-gauge__value {
+  color: #8c3d21;
+}
+
+.mini-gauge--high .mini-gauge__value {
+  color: #215a3f;
 }
 
 .alarm-log-header {

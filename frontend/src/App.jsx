@@ -24,6 +24,17 @@ function escalarNivel(valor, min, max) {
   return Math.max(0, Math.min(100, porcentaje));
 }
 
+function formatLevel(level) {
+  const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  return `${Math.round(safeLevel)}%`;
+}
+
+function getLevelTone(level) {
+  if (level <= 20) return "low";
+  if (level <= 60) return "mid";
+  return "high";
+}
+
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
 
@@ -1044,6 +1055,7 @@ function FalconeCard({ level, plc, onOpenConfig }) {
 
 function MiniTankCard({ title, level, plc, onOpenConfig }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  const levelTone = getLevelTone(safeLevel);
 
   return (
     <article className="mini-card">
@@ -1055,17 +1067,19 @@ function MiniTankCard({ title, level, plc, onOpenConfig }) {
       </div>
 
       <div className="mini-gauge-wrap">
-        <div className="mini-gauge">
+        <div className={`mini-gauge mini-gauge--${levelTone}`}>
           <div className="mini-gauge__inner">
             <div
               className="mini-gauge__water"
               style={{ height: `${safeLevel}%` }}
-            />
+            >
+              <div className="mini-gauge__wave mini-gauge__wave--back" />
+              <div className="mini-gauge__wave mini-gauge__wave--front" />
+              <div className="mini-gauge__wave-shine" />
+            </div>
           </div>
 
-          <div className="mini-gauge__value">
-            {Number.isInteger(safeLevel) ? safeLevel : safeLevel.toFixed(2)}%
-          </div>
+          <div className="mini-gauge__value">{formatLevel(safeLevel)}</div>
         </div>
       </div>
 
@@ -1134,17 +1148,20 @@ function PumpBox({ name, runtime, modes = {}, alert = false }) {
 
 function TankGauge({ level }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  const levelTone = getLevelTone(safeLevel);
 
   return (
     <div className="gauge-wrap">
-      <div className="gauge">
+      <div className={`gauge gauge--${levelTone}`}>
         <div className="gauge__inner">
-          <div className="gauge__water" style={{ height: `${safeLevel}%` }} />
+          <div className="gauge__water" style={{ height: `${safeLevel}%` }}>
+            <div className="gauge__wave gauge__wave--back" />
+            <div className="gauge__wave gauge__wave--front" />
+            <div className="gauge__wave-shine" />
+          </div>
         </div>
 
-        <div className="gauge__value">
-          {Number.isInteger(safeLevel) ? safeLevel : safeLevel.toFixed(2)}%
-        </div>
+        <div className="gauge__value">{formatLevel(safeLevel)}</div>
       </div>
     </div>
   );
