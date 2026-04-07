@@ -72,6 +72,17 @@ const topicToKeyNivel = {
   Cuadrada_Real_1: "cuadrada",
 };
 
+const HISTORICAL_TANK_COLUMNS = {
+  planta: "planta",
+  cabo_viejo: "cabo_viejo",
+  falcone: "falcone",
+  cinco: "cinco",
+  seis: "seis",
+  marilu: "marilu",
+  pacifico: "pacifico",
+  cuadrada: "cuadrada",
+};
+
 /* TOPICS MQTT - PLC STATUS / BIT DE VIDA */
 const topicToKeyPlc = {
   Planta_Real_2: "planta",
@@ -471,16 +482,23 @@ app.get("/api/historico", (req, res) => {
   );
 });
 
-app.get("/api/cabo-viejo", (req, res) => {
+app.get("/api/historico/:tankKey", (req, res) => {
+  const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
+  const column = HISTORICAL_TANK_COLUMNS[tankKey];
+
+  if (!column) {
+    return res.status(400).json({ error: "Tanque no valido" });
+  }
+
   db.all(
     `
     SELECT
       id,
-      cabo_viejo AS nivel,
+      ${column} AS nivel,
       datetime(fecha, 'localtime') AS fecha
     FROM niveles_historicos
     ORDER BY id DESC
-    LIMIT 50
+    LIMIT 288
     `,
     [],
     (err, rows) => {

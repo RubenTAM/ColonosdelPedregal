@@ -12,6 +12,17 @@ const DEFAULT_LEVEL_CONFIG = {
   cuadrada: { min: 0, max: 140 },
 };
 
+const TANK_OPTIONS = [
+  { key: "planta", label: "Planta" },
+  { key: "cabo_viejo", label: "Cabo Viejo" },
+  { key: "falcone", label: "Falcone" },
+  { key: "cinco", label: "Cinco" },
+  { key: "seis", label: "Seis" },
+  { key: "marilu", label: "Marilu" },
+  { key: "pacifico", label: "Pacifico" },
+  { key: "cuadrada", label: "Cuadrada" },
+];
+
 function escalarNivel(valor, min, max) {
   const v = Number(valor);
   const minNum = Number(min);
@@ -27,12 +38,6 @@ function escalarNivel(valor, min, max) {
 function formatLevel(level) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   return `${Math.round(safeLevel)}%`;
-}
-
-function getLevelTone(level) {
-  if (level <= 20) return "low";
-  if (level <= 60) return "mid";
-  return "high";
 }
 
 function apiFetch(url, options = {}) {
@@ -120,6 +125,7 @@ export default function App() {
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
+  const [selectedGraphTank, setSelectedGraphTank] = useState("planta");
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -676,19 +682,39 @@ export default function App() {
 
         {activeView === "graficas" && (
           <section className="content graficas-content">
-            <div className="graficas-grid">
-              <div className="grafica-card grafica-card--main">
-                <div className="grafica-card__header">
-                  <h3>Cabo Viejo</h3>
-                  <span>Tiempo vs Nivel</span>
-                </div>
-
-                <CaboViejoChart />
+            <div className="graficas-page">
+              <div className="grafica-toolbar">
+                {TANK_OPTIONS.map((tank) => (
+                  <button
+                    key={tank.key}
+                    type="button"
+                    className={`grafica-tab ${
+                      selectedGraphTank === tank.key ? "grafica-tab--active" : ""
+                    }`}
+                    onClick={() => setSelectedGraphTank(tank.key)}
+                  >
+                    {tank.label}
+                  </button>
+                ))}
               </div>
 
-              <div className="grafica-card grafica-card--empty" />
-              <div className="grafica-card grafica-card--empty" />
-              <div className="grafica-card grafica-card--empty" />
+              <div className="grafica-card grafica-card--full">
+                <div className="grafica-card__header">
+                  <h3>
+                    {TANK_OPTIONS.find((tank) => tank.key === selectedGraphTank)
+                      ?.label || ""}
+                  </h3>
+                  <span>Muestreo cada 10 minutos</span>
+                </div>
+
+                <TankHistoryChart
+                  tankKey={selectedGraphTank}
+                  tankLabel={
+                    TANK_OPTIONS.find((tank) => tank.key === selectedGraphTank)
+                      ?.label || ""
+                  }
+                />
+              </div>
             </div>
           </section>
         )}
@@ -1055,7 +1081,6 @@ function FalconeCard({ level, plc, onOpenConfig }) {
 
 function MiniTankCard({ title, level, plc, onOpenConfig }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
-  const levelTone = getLevelTone(safeLevel);
 
   return (
     <article className="mini-card">
@@ -1067,7 +1092,7 @@ function MiniTankCard({ title, level, plc, onOpenConfig }) {
       </div>
 
       <div className="mini-gauge-wrap">
-        <div className={`mini-gauge mini-gauge--${levelTone}`}>
+        <div className="mini-gauge">
           <div className="mini-gauge__inner">
             <div
               className="mini-gauge__water"
@@ -1148,11 +1173,10 @@ function PumpBox({ name, runtime, modes = {}, alert = false }) {
 
 function TankGauge({ level }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
-  const levelTone = getLevelTone(safeLevel);
 
   return (
     <div className="gauge-wrap">
-      <div className={`gauge gauge--${levelTone}`}>
+      <div className="gauge">
         <div className="gauge__inner">
           <div className="gauge__water" style={{ height: `${safeLevel}%` }}>
             <div className="gauge__wave gauge__wave--back" />
@@ -1167,14 +1191,17 @@ function TankGauge({ level }) {
   );
 }
 
-function CaboViejoChart() {
+function TankHistoryChart({ tankKey, tankLabel }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
   useEffect(() => {
+    setLoading(true);
+    setHoveredPoint(null);
+
     const fetchRows = () => {
-      fetch("/api/cabo-viejo")
+      fetch(`/api/historico/${tankKey}`)
         .then((res) => res.json())
         .then((data) => {
           const ordenados = [...data].reverse();
@@ -1182,7 +1209,7 @@ function CaboViejoChart() {
           setLoading(false);
         })
         .catch((err) => {
-          console.error("Error al cargar gráfica:", err);
+          console.error("Error al cargar grafica:", err);
           setLoading(false);
         });
     };
@@ -1190,9 +1217,9 @@ function CaboViejoChart() {
     fetchRows();
     const interval = setInterval(fetchRows, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [tankKey]);
 
-  const chartData = useMemo(() => rows.slice(-20), [rows]);
+  const chartData = useMemo(() => rows.slice(-72), [rows]);
 
   if (loading) {
     return <div className="chart-empty">Cargando datos...</div>;
@@ -1200,7 +1227,9 @@ function CaboViejoChart() {
 
   if (!chartData.length) {
     return (
-      <div className="chart-empty">No hay datos de Cabo Viejo todavía.</div>
+      <div className="chart-empty">
+        No hay datos historicos para {tankLabel} todavia.
+      </div>
     );
   }
 
@@ -1296,7 +1325,9 @@ function CaboViejoChart() {
               top: `${(hoveredPoint.y / height) * 100}%`,
             }}
           >
-            <div className="chart-tooltip__value">{hoveredPoint.nivel}%</div>
+            <div className="chart-tooltip__value">
+              {Math.round(hoveredPoint.nivel)}%
+            </div>
             <div className="chart-tooltip__time">{hoveredPoint.item.fecha}</div>
           </div>
         )}
