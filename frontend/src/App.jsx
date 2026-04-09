@@ -60,6 +60,18 @@ function formatChartDateTime(value) {
   }).format(date);
 }
 
+function toSqlUtcString(dateValue, timeValue) {
+  if (!dateValue || !timeValue) return "";
+
+  const date = new Date(`${dateValue}T${timeValue}:00`);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
 
@@ -146,6 +158,15 @@ export default function App() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
   const [graphModalTank, setGraphModalTank] = useState(null);
+  const [queryForm, setQueryForm] = useState({
+    tankKey: "cinco",
+    date: "",
+    startTime: "",
+    endTime: "",
+  });
+  const [queryRows, setQueryRows] = useState([]);
+  const [queryLoading, setQueryLoading] = useState(false);
+  const [queryError, setQueryError] = useState("");
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -194,6 +215,20 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("level_config", JSON.stringify(levelConfig));
   }, [levelConfig]);
+
+  useEffect(() => {
+    const now = new Date();
+    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+    const localDate = now.toISOString().slice(0, 10);
+    const pad = (value) => String(value).padStart(2, "0");
+
+    setQueryForm((prev) => ({
+      ...prev,
+      date: localDate,
+      startTime: `${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`,
+      endTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    }));
+  }, []);
 
   useEffect(() => {
     const onResize = () => {
@@ -435,6 +470,49 @@ export default function App() {
       .catch((err) => setUserMessage(err.message));
   };
 
+  const handleQuerySubmit = (e) => {
+    e.preventDefault();
+
+    const start = toSqlUtcString(queryForm.date, queryForm.startTime);
+    const end = toSqlUtcString(queryForm.date, queryForm.endTime);
+
+    if (!start || !end) {
+      setQueryError("Completa fecha y horas validas.");
+      setQueryRows([]);
+      return;
+    }
+
+    if (start > end) {
+      setQueryError("La hora inicial debe ser menor o igual a la final.");
+      setQueryRows([]);
+      return;
+    }
+
+    setQueryLoading(true);
+    setQueryError("");
+
+    const params = new URLSearchParams({
+      tankKey: queryForm.tankKey,
+      start,
+      end,
+    });
+
+    apiFetch(`/api/historico-query?${params.toString()}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al consultar");
+        return data;
+      })
+      .then((data) => {
+        setQueryRows(Array.isArray(data.rows) ? data.rows : []);
+      })
+      .catch((err) => {
+        setQueryError(err.message);
+        setQueryRows([]);
+      })
+      .finally(() => setQueryLoading(false));
+  };
+
   if (!authChecked) {
     return (
       <div className="login-page">
@@ -512,6 +590,16 @@ export default function App() {
 
           <button
             className={`nav-item ${
+              activeView === "consultas" ? "nav-item--active" : ""
+            }`}
+            onClick={() => setActiveView("consultas")}
+          >
+            <span className="nav-item__icon">🔎</span>
+            <span>Consultas</span>
+          </button>
+
+          <button
+            className={`nav-item ${
               activeView === "usuarios" ? "nav-item--active" : ""
             }`}
             onClick={() => setActiveView("usuarios")}
@@ -544,6 +632,13 @@ export default function App() {
                 <>
                   <h1>Histórico de Alarmas</h1>
                   <p>Registro general de eventos y alarmas del sistema</p>
+                </>
+              )}
+
+              {activeView === "consultas" && (
+                <>
+                  <h1>Consultas</h1>
+                  <p>Consulta historicos por tanque, fecha y rango horario</p>
                 </>
               )}
 
@@ -692,6 +787,19 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </section>
+        )}
+
+        {activeView === "consultas" && (
+          <section className="content">
+            <HistoricalQueryView
+              queryForm={queryForm}
+              setQueryForm={setQueryForm}
+              queryRows={queryRows}
+              queryLoading={queryLoading}
+              queryError={queryError}
+              onSubmit={handleQuerySubmit}
+            />
           </section>
         )}
 
@@ -1376,6 +1484,132 @@ function TankGraphModal({ tankKey, onClose }) {
         </div>
       </div>
     </>
+  );
+}
+
+function HistoricalQueryView({
+  queryForm,
+  setQueryForm,
+  queryRows,
+  queryLoading,
+  queryError,
+  onSubmit,
+}) {
+  return (
+    <div className="query-page">
+      <div className="query-form-card">
+        <div className="query-form-card__intro">
+          <h2>Consulta de registros</h2>
+          <p>
+            Selecciona tanque, fecha y rango horario para ver los valores
+            historicos registrados.
+          </p>
+        </div>
+
+        <form className="query-form" onSubmit={onSubmit}>
+          <div className="query-form__grid">
+            <div className="login-field">
+              <label>Tanque</label>
+              <select
+                className="users-select"
+                value={queryForm.tankKey}
+                onChange={(e) =>
+                  setQueryForm((prev) => ({
+                    ...prev,
+                    tankKey: e.target.value,
+                  }))
+                }
+              >
+                {TANK_OPTIONS.map((tank) => (
+                  <option key={tank.key} value={tank.key}>
+                    {tank.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="login-field">
+              <label>Fecha</label>
+              <input
+                type="date"
+                value={queryForm.date}
+                onChange={(e) =>
+                  setQueryForm((prev) => ({
+                    ...prev,
+                    date: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="login-field">
+              <label>Hora inicio</label>
+              <input
+                type="time"
+                value={queryForm.startTime}
+                onChange={(e) =>
+                  setQueryForm((prev) => ({
+                    ...prev,
+                    startTime: e.target.value,
+                  }))
+                }
+              />
+            </div>
+
+            <div className="login-field">
+              <label>Hora fin</label>
+              <input
+                type="time"
+                value={queryForm.endTime}
+                onChange={(e) =>
+                  setQueryForm((prev) => ({
+                    ...prev,
+                    endTime: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          {queryError && <div className="users-message">{queryError}</div>}
+
+          <div className="query-form__actions">
+            <button className="login-btn" type="submit" disabled={queryLoading}>
+              {queryLoading ? "Consultando..." : "Consultar"}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="query-results-card">
+        <div className="query-results-card__header">
+          <h3>Log de resultados</h3>
+          <span>{queryRows.length} registros</span>
+        </div>
+
+        {!queryRows.length ? (
+          <div className="query-empty-state">
+            {queryLoading
+              ? "Buscando registros..."
+              : "Aqui apareceran los valores encontrados para tu consulta."}
+          </div>
+        ) : (
+          <div className="query-table">
+            <div className="query-table__head">
+              <div>Fecha y hora</div>
+              <div>Valor</div>
+            </div>
+
+            {queryRows.map((row) => (
+              <div className="query-table__row" key={row.id}>
+                <div>{formatChartDateTime(row.fecha)}</div>
+                <div>{Number(row.nivel).toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

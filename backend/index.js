@@ -512,6 +512,41 @@ app.get("/api/historico/:tankKey", (req, res) => {
   );
 });
 
+app.get("/api/historico-query", verifyToken, (req, res) => {
+  const tankKey = String(req.query.tankKey || "").trim().toLowerCase();
+  const start = String(req.query.start || "").trim();
+  const end = String(req.query.end || "").trim();
+  const column = HISTORICAL_TANK_COLUMNS[tankKey];
+
+  if (!column) {
+    return res.status(400).json({ error: "Tanque no valido" });
+  }
+
+  if (!start || !end) {
+    return res.status(400).json({ error: "Debes indicar fecha inicial y final" });
+  }
+
+  db.all(
+    `
+    SELECT
+      id,
+      ${column} AS nivel,
+      fecha
+    FROM ${HISTORICAL_TABLE}
+    WHERE fecha >= ? AND fecha <= ?
+    ORDER BY fecha ASC
+    LIMIT 1000
+    `,
+    [start, end],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ rows });
+    }
+  );
+});
+
 app.listen(PORT, () => {
   console.log(`Backend corriendo en http://localhost:${PORT}`);
 });
