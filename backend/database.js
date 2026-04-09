@@ -11,6 +11,35 @@ const db = new sqlite3.Database("./niveles.db", (err) => {
 
 db.configure("busyTimeout", 5000);
 
+function ensureHistoricoColumn(name) {
+  db.get(
+    `SELECT 1
+     FROM pragma_table_info('niveles_historicos')
+     WHERE name = ?`,
+    [name],
+    (err, row) => {
+      if (err) {
+        console.error(`Error verificando columna ${name}:`, err.message);
+        return;
+      }
+
+      if (row) return;
+
+      db.run(
+        `ALTER TABLE niveles_historicos
+         ADD COLUMN ${name} REAL NOT NULL DEFAULT 0`,
+        (alterErr) => {
+          if (alterErr) {
+            console.error(`Error agregando columna ${name}:`, alterErr.message);
+          } else {
+            console.log(`Columna ${name} agregada a niveles_historicos`);
+          }
+        }
+      );
+    }
+  );
+}
+
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS niveles_historicos (
@@ -26,6 +55,10 @@ db.serialize(() => {
       fecha DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  ["cinco", "seis", "marilu", "pacifico", "cuadrada"].forEach(
+    ensureHistoricoColumn
+  );
 
   db.run(`
     CREATE TABLE IF NOT EXISTS users (

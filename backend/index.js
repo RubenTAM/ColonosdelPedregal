@@ -262,12 +262,13 @@ function guardarHistorico() {
       if (err) {
         console.error("Error al guardar histórico:", err.message);
       } else {
-        console.log("Histórico guardado cada 10 min. ID:", this.lastID);
+        console.log("Histórico guardado. ID:", this.lastID);
       }
     }
   );
 }
 
+setTimeout(guardarHistorico, 1500);
 setInterval(guardarHistorico, 600000);
 
 /* ---------- AUTH USERS ---------- */
@@ -467,7 +468,7 @@ app.get("/api/historico", (req, res) => {
       marilu,
       pacifico,
       cuadrada,
-      datetime(fecha, 'localtime') AS fecha
+      fecha
     FROM niveles_historicos
     ORDER BY id DESC
     LIMIT 100
@@ -495,7 +496,7 @@ app.get("/api/historico/:tankKey", (req, res) => {
     SELECT
       id,
       ${column} AS nivel,
-      datetime(fecha, 'localtime') AS fecha
+      fecha
     FROM niveles_historicos
     ORDER BY id DESC
     LIMIT 288

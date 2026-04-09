@@ -40,6 +40,26 @@ function formatLevel(level) {
   return `${Math.round(safeLevel)}%`;
 }
 
+function formatChartDateTime(value) {
+  if (!value) return "";
+
+  const normalized = String(value).replace(" ", "T");
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
 
@@ -1317,7 +1337,9 @@ function TankHistoryChart({ tankKey, tankLabel }) {
             <div className="chart-tooltip__value">
               {Math.round(hoveredPoint.nivel)}%
             </div>
-            <div className="chart-tooltip__time">{hoveredPoint.item.fecha}</div>
+            <div className="chart-tooltip__time">
+              {formatChartDateTime(hoveredPoint.item.fecha)}
+            </div>
           </div>
         )}
       </div>
