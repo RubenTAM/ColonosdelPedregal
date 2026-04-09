@@ -43,7 +43,7 @@ function formatLevel(level) {
 function formatChartDateTime(value) {
   if (!value) return "";
 
-  const normalized = String(value).replace(" ", "T");
+  const normalized = `${String(value).replace(" ", "T")}Z`;
   const date = new Date(normalized);
 
   if (Number.isNaN(date.getTime())) {
