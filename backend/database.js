@@ -42,6 +42,21 @@ function ensureHistoricoColumn(name) {
 
 db.serialize(() => {
   db.run(`
+    CREATE TABLE IF NOT EXISTS niveles_historicos_v2 (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      planta REAL NOT NULL,
+      cabo_viejo REAL NOT NULL,
+      falcone REAL NOT NULL,
+      cinco REAL NOT NULL,
+      seis REAL NOT NULL,
+      marilu REAL NOT NULL,
+      pacifico REAL NOT NULL,
+      cuadrada REAL NOT NULL,
+      fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS niveles_historicos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       planta REAL NOT NULL,

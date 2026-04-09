@@ -14,6 +14,7 @@ app.use(express.json());
 const PORT = 3001;
 const MQTT_URL = "mqtt://18.216.64.219:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
+const HISTORICAL_TABLE = "niveles_historicos_v2";
 
 /* ESTADO EN MEMORIA */
 let niveles = {
@@ -234,7 +235,7 @@ function guardarHistorico() {
 
   db.run(
     `
-    INSERT INTO niveles_historicos (
+    INSERT INTO ${HISTORICAL_TABLE} (
       planta,
       cabo_viejo,
       falcone,
@@ -469,7 +470,7 @@ app.get("/api/historico", (req, res) => {
       pacifico,
       cuadrada,
       fecha
-    FROM niveles_historicos
+    FROM ${HISTORICAL_TABLE}
     ORDER BY id DESC
     LIMIT 100
     `,
@@ -497,7 +498,7 @@ app.get("/api/historico/:tankKey", (req, res) => {
       id,
       ${column} AS nivel,
       fecha
-    FROM niveles_historicos
+    FROM ${HISTORICAL_TABLE}
     ORDER BY id DESC
     LIMIT 288
     `,
