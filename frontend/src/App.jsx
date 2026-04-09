@@ -125,7 +125,7 @@ export default function App() {
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
-  const [selectedGraphTank, setSelectedGraphTank] = useState("planta");
+  const [graphModalTank, setGraphModalTank] = useState(null);
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -147,6 +147,14 @@ export default function App() {
     setConfigModalOpen(false);
     setSelectedTank(null);
     setConfigForm({ min: "", max: "" });
+  };
+
+  const openGraphModal = (tankKey) => {
+    setGraphModalTank(tankKey);
+  };
+
+  const closeGraphModal = () => {
+    setGraphModalTank(null);
   };
 
   const saveTankConfig = () => {
@@ -484,16 +492,6 @@ export default function App() {
 
           <button
             className={`nav-item ${
-              activeView === "graficas" ? "nav-item--active" : ""
-            }`}
-            onClick={() => setActiveView("graficas")}
-          >
-            <span className="nav-item__icon">📈</span>
-            <span>Gráficas</span>
-          </button>
-
-          <button
-            className={`nav-item ${
               activeView === "usuarios" ? "nav-item--active" : ""
             }`}
             onClick={() => setActiveView("usuarios")}
@@ -529,13 +527,6 @@ export default function App() {
                 </>
               )}
 
-              {activeView === "graficas" && (
-                <>
-                  <h1>Gráficas</h1>
-                  <p>Visualización histórica de niveles</p>
-                </>
-              )}
-
               {activeView === "usuarios" && (
                 <>
                   <h1>Usuarios</h1>
@@ -564,6 +555,7 @@ export default function App() {
                 plc={plcStatus.planta}
                 plantaBotones={plantaBotones}
                 onOpenConfig={() => openConfigModal("planta")}
+                onOpenGraph={() => openGraphModal("planta")}
               />
 
               <CaboViejoCard
@@ -575,12 +567,14 @@ export default function App() {
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
+                onOpenGraph={() => openGraphModal("cabo_viejo")}
               />
 
               <FalconeCard
                 level={nivelesEscalados.falcone}
                 plc={plcStatus.falcone}
                 onOpenConfig={() => openConfigModal("falcone")}
+                onOpenGraph={() => openGraphModal("falcone")}
               />
             </div>
 
@@ -597,6 +591,7 @@ export default function App() {
                         level={item.level}
                         plc={item.plc}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
+                        onOpenGraph={() => openGraphModal(item.tankKey)}
                       />
                     )
                   )}
@@ -675,45 +670,6 @@ export default function App() {
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeView === "graficas" && (
-          <section className="content graficas-content">
-            <div className="graficas-page">
-              <div className="grafica-toolbar">
-                {TANK_OPTIONS.map((tank) => (
-                  <button
-                    key={tank.key}
-                    type="button"
-                    className={`grafica-tab ${
-                      selectedGraphTank === tank.key ? "grafica-tab--active" : ""
-                    }`}
-                    onClick={() => setSelectedGraphTank(tank.key)}
-                  >
-                    {tank.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grafica-card grafica-card--full">
-                <div className="grafica-card__header">
-                  <h3>
-                    {TANK_OPTIONS.find((tank) => tank.key === selectedGraphTank)
-                      ?.label || ""}
-                  </h3>
-                  <span>Muestreo cada 10 minutos</span>
-                </div>
-
-                <TankHistoryChart
-                  tankKey={selectedGraphTank}
-                  tankLabel={
-                    TANK_OPTIONS.find((tank) => tank.key === selectedGraphTank)
-                      ?.label || ""
-                  }
-                />
               </div>
             </div>
           </section>
@@ -873,6 +829,10 @@ export default function App() {
           onSave={saveTankConfig}
         />
       )}
+
+      {graphModalTank && (
+        <TankGraphModal tankKey={graphModalTank} onClose={closeGraphModal} />
+      )}
     </div>
   );
 }
@@ -929,7 +889,13 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
   );
 }
 
-function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
+function PlantaCard({
+  level,
+  plc,
+  plantaBotones,
+  onOpenConfig,
+  onOpenGraph,
+}) {
   const [noDisponible, setNoDisponible] = useState(false);
 
   return (
@@ -1028,6 +994,8 @@ function PlantaCard({ level, plc, plantaBotones, onOpenConfig }) {
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
+
+      <GraphCardButton onClick={onOpenGraph} />
     </article>
   );
 }
@@ -1041,6 +1009,7 @@ function CaboViejoCard({
   p71b,
   bombasCaboviejo,
   onOpenConfig,
+  onOpenGraph,
 }) {
   return (
     <article className="dashboard-card">
@@ -1057,11 +1026,13 @@ function CaboViejoCard({
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
+
+      <GraphCardButton onClick={onOpenGraph} />
     </article>
   );
 }
 
-function FalconeCard({ level, plc, onOpenConfig }) {
+function FalconeCard({ level, plc, onOpenConfig, onOpenGraph }) {
   return (
     <article className="dashboard-card">
       <CardHeader title="FALCONE" onOpenConfig={onOpenConfig} />
@@ -1075,11 +1046,13 @@ function FalconeCard({ level, plc, onOpenConfig }) {
       <div className="footer-pills">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
+
+      <GraphCardButton onClick={onOpenGraph} />
     </article>
   );
 }
 
-function MiniTankCard({ title, level, plc, onOpenConfig }) {
+function MiniTankCard({ title, level, plc, onOpenConfig, onOpenGraph }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
 
   return (
@@ -1111,7 +1084,23 @@ function MiniTankCard({ title, level, plc, onOpenConfig }) {
       <div className="mini-footer">
         <div className="footer-pill">PLC: {plc}</div>
       </div>
+
+      <GraphCardButton onClick={onOpenGraph} compact />
     </article>
+  );
+}
+
+function GraphCardButton({ onClick, compact = false }) {
+  return (
+    <button
+      type="button"
+      className={`graph-card-btn ${compact ? "graph-card-btn--compact" : ""}`}
+      onClick={onClick}
+      aria-label="Ver grafica"
+      title="Ver grafica"
+    >
+      &#128200;
+    </button>
   );
 }
 
@@ -1333,6 +1322,38 @@ function TankHistoryChart({ tankKey, tankLabel }) {
         )}
       </div>
     </div>
+  );
+}
+
+function TankGraphModal({ tankKey, onClose }) {
+  const tankLabel =
+    TANK_OPTIONS.find((tank) => tank.key === tankKey)?.label || tankKey;
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={onClose} />
+      <div className="tank-graph-modal">
+        <div className="tank-graph-modal__header">
+          <div>
+            <h3>{tankLabel}</h3>
+            <span>Historico de nivel, muestreo cada 10 minutos</span>
+          </div>
+
+          <button
+            type="button"
+            className="tank-graph-modal__close"
+            onClick={onClose}
+            aria-label="Cerrar grafica"
+          >
+            X
+          </button>
+        </div>
+
+        <div className="tank-graph-modal__body">
+          <TankHistoryChart tankKey={tankKey} tankLabel={tankLabel} />
+        </div>
+      </div>
+    </>
   );
 }
 
