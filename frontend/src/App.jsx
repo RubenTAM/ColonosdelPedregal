@@ -798,6 +798,7 @@ export default function App() {
               queryRows={queryRows}
               queryLoading={queryLoading}
               queryError={queryError}
+              levelConfig={levelConfig}
               onSubmit={handleQuerySubmit}
             />
           </section>
@@ -959,7 +960,11 @@ export default function App() {
       )}
 
       {graphModalTank && (
-        <TankGraphModal tankKey={graphModalTank} onClose={closeGraphModal} />
+        <TankGraphModal
+          tankKey={graphModalTank}
+          levelConfig={levelConfig}
+          onClose={closeGraphModal}
+        />
       )}
     </div>
   );
@@ -1308,7 +1313,7 @@ function TankGauge({ level }) {
   );
 }
 
-function TankHistoryChart({ tankKey, tankLabel }) {
+function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
@@ -1336,7 +1341,14 @@ function TankHistoryChart({ tankKey, tankLabel }) {
     return () => clearInterval(interval);
   }, [tankKey]);
 
-  const chartData = useMemo(() => rows.slice(-72), [rows]);
+  const chartData = useMemo(() => {
+    const config = levelConfig[tankKey] || DEFAULT_LEVEL_CONFIG[tankKey];
+
+    return rows.slice(-72).map((row) => ({
+      ...row,
+      nivelEscalado: escalarNivel(row.nivel, config.min, config.max),
+    }));
+  }, [levelConfig, rows, tankKey]);
 
   if (loading) {
     return <div className="chart-empty">Cargando datos...</div>;
@@ -1361,7 +1373,7 @@ function TankHistoryChart({ tankKey, tankLabel }) {
       padding +
       (index * (width - padding * 2)) / Math.max(chartData.length - 1, 1);
 
-    const nivel = Number(item.nivel) || 0;
+    const nivel = Number(item.nivelEscalado) || 0;
     const y =
       height -
       padding -
@@ -1442,9 +1454,7 @@ function TankHistoryChart({ tankKey, tankLabel }) {
               top: `${(hoveredPoint.y / height) * 100}%`,
             }}
           >
-            <div className="chart-tooltip__value">
-              {Math.round(hoveredPoint.nivel)}%
-            </div>
+            <div className="chart-tooltip__value">{Math.round(hoveredPoint.nivel)}%</div>
             <div className="chart-tooltip__time">
               {formatChartDateTime(hoveredPoint.item.fecha)}
             </div>
@@ -1455,7 +1465,7 @@ function TankHistoryChart({ tankKey, tankLabel }) {
   );
 }
 
-function TankGraphModal({ tankKey, onClose }) {
+function TankGraphModal({ tankKey, levelConfig, onClose }) {
   const tankLabel =
     TANK_OPTIONS.find((tank) => tank.key === tankKey)?.label || tankKey;
 
@@ -1480,7 +1490,11 @@ function TankGraphModal({ tankKey, onClose }) {
         </div>
 
         <div className="tank-graph-modal__body">
-          <TankHistoryChart tankKey={tankKey} tankLabel={tankLabel} />
+          <TankHistoryChart
+            tankKey={tankKey}
+            tankLabel={tankLabel}
+            levelConfig={levelConfig}
+          />
         </div>
       </div>
     </>
@@ -1493,8 +1507,16 @@ function HistoricalQueryView({
   queryRows,
   queryLoading,
   queryError,
+  levelConfig,
   onSubmit,
 }) {
+  const config =
+    levelConfig[queryForm.tankKey] || DEFAULT_LEVEL_CONFIG[queryForm.tankKey];
+  const scaledRows = queryRows.map((row) => ({
+    ...row,
+    nivelEscalado: escalarNivel(row.nivel, config.min, config.max),
+  }));
+
   return (
     <div className="query-page">
       <div className="query-form-card">
@@ -1584,10 +1606,10 @@ function HistoricalQueryView({
       <div className="query-results-card">
         <div className="query-results-card__header">
           <h3>Log de resultados</h3>
-          <span>{queryRows.length} registros</span>
+          <span>{scaledRows.length} registros</span>
         </div>
 
-        {!queryRows.length ? (
+        {!scaledRows.length ? (
           <div className="query-empty-state">
             {queryLoading
               ? "Buscando registros..."
@@ -1600,10 +1622,10 @@ function HistoricalQueryView({
               <div>Valor</div>
             </div>
 
-            {queryRows.map((row) => (
+            {scaledRows.map((row) => (
               <div className="query-table__row" key={row.id}>
                 <div>{formatChartDateTime(row.fecha)}</div>
-                <div>{Number(row.nivel).toFixed(2)}</div>
+                <div>{Math.round(row.nivelEscalado)}%</div>
               </div>
             ))}
           </div>
