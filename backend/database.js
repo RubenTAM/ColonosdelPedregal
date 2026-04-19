@@ -96,6 +96,34 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS level_config (
+      tank_key TEXT PRIMARY KEY,
+      min REAL NOT NULL,
+      max REAL NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  [
+    "planta",
+    "cabo_viejo",
+    "falcone",
+    "cinco",
+    "seis",
+    "marilu",
+    "pacifico",
+    "cuadrada",
+  ].forEach((tankKey) => {
+    db.run(
+      `
+      INSERT OR IGNORE INTO level_config (tank_key, min, max)
+      VALUES (?, 0, 140)
+      `,
+      [tankKey]
+    );
+  });
+
   const adminUser = "admin";
   const adminPass = "TAM$123";
   const adminRole = "admin";

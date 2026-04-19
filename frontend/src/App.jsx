@@ -150,10 +150,7 @@ export default function App() {
     role: "viewer",
   });
 
-  const [levelConfig, setLevelConfig] = useState(() => {
-    const saved = localStorage.getItem("level_config");
-    return saved ? JSON.parse(saved) : DEFAULT_LEVEL_CONFIG;
-  });
+  const [levelConfig, setLevelConfig] = useState(DEFAULT_LEVEL_CONFIG);
 
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
@@ -200,21 +197,31 @@ export default function App() {
 
   const saveTankConfig = () => {
     if (!selectedTank) return;
+    const min = Number(configForm.min);
+    const max = Number(configForm.max);
 
-    setLevelConfig((prev) => ({
-      ...prev,
-      [selectedTank]: {
-        min: Number(configForm.min),
-        max: Number(configForm.max),
-      },
-    }));
+    apiFetch(`/api/level-config/${selectedTank}`, {
+      method: "POST",
+      body: JSON.stringify({ min, max }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al guardar configuracion");
+        return data;
+      })
+      .then(() => {
+        setLevelConfig((prev) => ({
+          ...prev,
+          [selectedTank]: {
+            min,
+            max,
+          },
+        }));
 
-    closeConfigModal();
+        closeConfigModal();
+      })
+      .catch((err) => console.error("Error al guardar configuracion:", err));
   };
-
-  useEffect(() => {
-    localStorage.setItem("level_config", JSON.stringify(levelConfig));
-  }, [levelConfig]);
 
   useEffect(() => {
     const now = new Date();
@@ -283,6 +290,27 @@ export default function App() {
 
     obtenerNiveles();
     const interval = setInterval(obtenerNiveles, 1000);
+    return () => clearInterval(interval);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) return;
+
+    const cargarConfig = () => {
+      apiFetch("/api/level-config")
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al cargar configuracion");
+          return data;
+        })
+        .then((data) => {
+          setLevelConfig(data.config || DEFAULT_LEVEL_CONFIG);
+        })
+        .catch((err) => console.error("Error al cargar configuracion:", err));
+    };
+
+    cargarConfig();
+    const interval = setInterval(cargarConfig, 5000);
     return () => clearInterval(interval);
   }, [authUser]);
 

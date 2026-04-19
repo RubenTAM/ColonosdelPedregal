@@ -16,6 +16,17 @@ const MQTT_URL = "mqtt://18.216.64.219:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 const HISTORICAL_TABLE = "niveles_historicos_v2";
 
+const DEFAULT_LEVEL_CONFIG = {
+  planta: { min: 0, max: 140 },
+  cabo_viejo: { min: 0, max: 140 },
+  falcone: { min: 0, max: 140 },
+  cinco: { min: 0, max: 140 },
+  seis: { min: 0, max: 140 },
+  marilu: { min: 0, max: 140 },
+  pacifico: { min: 0, max: 140 },
+  cuadrada: { min: 0, max: 140 },
+};
+
 /* ESTADO EN MEMORIA */
 let niveles = {
   planta: 0,
@@ -440,6 +451,74 @@ app.get("/api/login-logs", verifyToken, (req, res) => {
         return res.status(500).json({ error: err.message });
       }
       res.json(rows);
+    }
+  );
+});
+
+app.get("/api/level-config", verifyToken, (req, res) => {
+  db.all(
+    `
+    SELECT tank_key, min, max
+    FROM level_config
+    `,
+    [],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      const config = { ...DEFAULT_LEVEL_CONFIG };
+
+      rows.forEach((row) => {
+        config[row.tank_key] = {
+          min: Number(row.min),
+          max: Number(row.max),
+        };
+      });
+
+      res.json({ config });
+    }
+  );
+});
+
+app.post("/api/level-config/:tankKey", verifyToken, (req, res) => {
+  const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
+  const defaults = DEFAULT_LEVEL_CONFIG[tankKey];
+
+  if (!defaults) {
+    return res.status(400).json({ error: "Tanque no valido" });
+  }
+
+  const min = Number(req.body.min);
+  const max = Number(req.body.max);
+
+  if (Number.isNaN(min) || Number.isNaN(max)) {
+    return res.status(400).json({ error: "Min y max deben ser numericos" });
+  }
+
+  db.run(
+    `
+    INSERT INTO level_config (tank_key, min, max, updated_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(tank_key) DO UPDATE SET
+      min = excluded.min,
+      max = excluded.max,
+      updated_at = CURRENT_TIMESTAMP
+    `,
+    [tankKey, min, max],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({
+        ok: true,
+        config: {
+          tankKey,
+          min,
+          max,
+        },
+      });
     }
   );
 });
