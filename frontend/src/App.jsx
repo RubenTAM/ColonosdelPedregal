@@ -90,6 +90,45 @@ function formatChartAxisDate(value) {
   }).format(date);
 }
 
+function formatChartRangeLabel(startValue, endValue) {
+  const start = parseSqlUtcDate(startValue);
+  const end = parseSqlUtcDate(endValue);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return "Ventana de 12 horas";
+  }
+
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
+  const dateFormatter = new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  const timeFormatter = new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  if (sameDay) {
+    return `${dateFormatter.format(start)} ${timeFormatter.format(start)} - ${timeFormatter.format(end)}`;
+  }
+
+  return `${dateFormatter.format(start)} ${timeFormatter.format(start)} - ${dateFormatter.format(end)} ${timeFormatter.format(end)}`;
+}
+
+function formatSqlUtcDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toISOString().slice(0, 19).replace("T", " ");
+}
+
 function toSqlDateTimeString(dateValue, timeValue) {
   if (!dateValue || !timeValue) return "";
   return `${dateValue} ${timeValue}:00`;
@@ -1368,17 +1407,45 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
+  const [windowEnd, setWindowEnd] = useState(null);
+  const [rangeInfo, setRangeInfo] = useState({
+    start: null,
+    end: null,
+    min: null,
+    max: null,
+  });
 
   useEffect(() => {
     setLoading(true);
     setHoveredPoint(null);
+    setWindowEnd(null);
 
     const fetchRows = () => {
-      fetch(`/api/historico/${tankKey}`)
+      const params = new URLSearchParams();
+
+      if (windowEnd) {
+        const endDate = parseSqlUtcDate(windowEnd);
+
+        if (!Number.isNaN(endDate.getTime())) {
+          const startDate = new Date(endDate.getTime() - 12 * 60 * 60 * 1000);
+          params.set("start", formatSqlUtcDate(startDate));
+          params.set("end", formatSqlUtcDate(endDate));
+        }
+      }
+
+      const query = params.toString();
+
+      fetch(`/api/historico/${tankKey}${query ? `?${query}` : ""}`)
         .then((res) => res.json())
         .then((data) => {
-          const ordenados = [...data].reverse();
-          setRows(ordenados);
+          const fetchedRows = Array.isArray(data?.rows) ? data.rows : [];
+          setRows(fetchedRows);
+          setRangeInfo({
+            start: data?.range?.start || null,
+            end: data?.range?.end || null,
+            min: data?.range?.min || null,
+            max: data?.range?.max || null,
+          });
           setLoading(false);
         })
         .catch((err) => {
@@ -1388,9 +1455,12 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
     };
 
     fetchRows();
-    const interval = setInterval(fetchRows, 10000);
-    return () => clearInterval(interval);
-  }, [tankKey]);
+    const interval = windowEnd ? null : setInterval(fetchRows, 10000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [tankKey, windowEnd]);
 
   const chartData = useMemo(() => {
     const config = levelConfig[tankKey] || DEFAULT_LEVEL_CONFIG[tankKey];
@@ -1456,9 +1526,70 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
     );
   });
   const points = pointsData.map((p) => `${p.x},${p.y}`).join(" ");
+  const availableMin = parseSqlUtcDate(rangeInfo.min);
+  const availableMax = parseSqlUtcDate(rangeInfo.max);
+  const currentWindowStart = parseSqlUtcDate(rangeInfo.start);
+  const currentWindowEnd = parseSqlUtcDate(rangeInfo.end);
+
+  const canGoBack =
+    !Number.isNaN(availableMin.getTime()) &&
+    !Number.isNaN(currentWindowStart.getTime()) &&
+    currentWindowStart.getTime() > availableMin.getTime();
+
+  const canGoForward =
+    !Number.isNaN(availableMax.getTime()) &&
+    !Number.isNaN(currentWindowEnd.getTime()) &&
+    currentWindowEnd.getTime() < availableMax.getTime();
+
+  const handlePreviousWindow = () => {
+    if (!canGoBack || Number.isNaN(currentWindowStart.getTime())) return;
+    setWindowEnd(formatSqlUtcDate(currentWindowStart));
+  };
+
+  const handleNextWindow = () => {
+    if (!canGoForward || Number.isNaN(currentWindowEnd.getTime())) return;
+
+    const nextEnd = new Date(
+      Math.min(
+        currentWindowEnd.getTime() + 12 * 60 * 60 * 1000,
+        availableMax.getTime()
+      )
+    );
+
+    if (nextEnd.getTime() >= availableMax.getTime()) {
+      setWindowEnd(null);
+      return;
+    }
+
+    setWindowEnd(formatSqlUtcDate(nextEnd));
+  };
 
   return (
     <div className="chart-wrap">
+      <div className="chart-toolbar">
+        <button
+          type="button"
+          className="chart-nav-btn"
+          onClick={handlePreviousWindow}
+          disabled={!canGoBack}
+        >
+          &lt;
+        </button>
+
+        <div className="chart-range-label">
+          {formatChartRangeLabel(rangeInfo.start, rangeInfo.end)}
+        </div>
+
+        <button
+          type="button"
+          className="chart-nav-btn"
+          onClick={handleNextWindow}
+          disabled={!canGoForward}
+        >
+          &gt;
+        </button>
+      </div>
+
       <div className="chart-svg-container">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -1600,10 +1731,10 @@ function TankGraphModal({ tankKey, levelConfig, onClose }) {
           </button>
         </div>
 
-        <div className="tank-graph-modal__body">
-          <TankHistoryChart
-            tankKey={tankKey}
-            tankLabel={tankLabel}
+          <div className="tank-graph-modal__body">
+            <TankHistoryChart
+              tankKey={tankKey}
+              tankLabel={tankLabel}
             levelConfig={levelConfig}
           />
         </div>

@@ -567,27 +567,67 @@ app.get("/api/historico", (req, res) => {
 app.get("/api/historico/:tankKey", (req, res) => {
   const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
   const column = HISTORICAL_TANK_COLUMNS[tankKey];
+  const start = String(req.query.start || "").trim();
+  const end = String(req.query.end || "").trim();
 
   if (!column) {
     return res.status(400).json({ error: "Tanque no valido" });
   }
 
-  db.all(
+  db.get(
     `
     SELECT
-      id,
-      ${column} AS nivel,
-      fecha
+      MIN(fecha) AS minFecha,
+      MAX(fecha) AS maxFecha
     FROM ${HISTORICAL_TABLE}
-    ORDER BY id DESC
-    LIMIT 288
     `,
     [],
-    (err, rows) => {
-      if (err) {
-        return res.status(500).json({ error: err.message });
+    (metaErr, metaRow) => {
+      if (metaErr) {
+        return res.status(500).json({ error: metaErr.message });
       }
-      res.json(rows);
+
+      const hasRange = start && end;
+      const sql = hasRange
+        ? `
+          SELECT
+            id,
+            ${column} AS nivel,
+            fecha
+          FROM ${HISTORICAL_TABLE}
+          WHERE fecha > ? AND fecha <= ?
+          ORDER BY fecha ASC
+          LIMIT 72
+        `
+        : `
+          SELECT
+            id,
+            ${column} AS nivel,
+            fecha
+          FROM ${HISTORICAL_TABLE}
+          ORDER BY fecha DESC
+          LIMIT 72
+        `;
+
+      const params = hasRange ? [start, end] : [];
+
+      db.all(sql, params, (err, rows) => {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
+
+        const orderedRows = hasRange ? rows : [...rows].reverse();
+
+        res.json({
+          rows: orderedRows,
+          range: {
+            start: orderedRows[0]?.fecha || null,
+            end: orderedRows[orderedRows.length - 1]?.fecha || null,
+            min: metaRow?.minFecha || null,
+            max: metaRow?.maxFecha || null,
+          },
+        });
+      });
     }
   );
 });
