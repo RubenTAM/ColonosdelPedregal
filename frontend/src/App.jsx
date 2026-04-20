@@ -90,16 +90,9 @@ function formatChartAxisDate(value) {
   }).format(date);
 }
 
-function toSqlUtcString(dateValue, timeValue) {
+function toSqlDateTimeString(dateValue, timeValue) {
   if (!dateValue || !timeValue) return "";
-
-  const date = new Date(`${dateValue}T${timeValue}:00`);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().slice(0, 19).replace("T", " ");
+  return `${dateValue} ${timeValue}:00`;
 }
 
 function apiFetch(url, options = {}) {
@@ -531,8 +524,8 @@ export default function App() {
   const handleQuerySubmit = (e) => {
     e.preventDefault();
 
-    const start = toSqlUtcString(queryForm.date, queryForm.startTime);
-    const end = toSqlUtcString(queryForm.date, queryForm.endTime);
+    const start = toSqlDateTimeString(queryForm.date, queryForm.startTime);
+    const end = toSqlDateTimeString(queryForm.date, queryForm.endTime);
 
     if (!start || !end) {
       setQueryError("Completa fecha y horas validas.");
