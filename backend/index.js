@@ -14,7 +14,7 @@ app.use(express.json());
 const PORT = 3001;
 const MQTT_URL = "mqtt://18.216.64.219:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
-const HISTORICAL_TABLE = "niveles_historicos_v2";
+const HISTORICAL_TABLE = "niveles_historicos";
 
 const DEFAULT_LEVEL_CONFIG = {
   planta: { min: 0, max: 140 },
