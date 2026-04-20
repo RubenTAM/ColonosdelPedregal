@@ -43,8 +43,7 @@ function formatLevel(level) {
 function formatChartDateTime(value) {
   if (!value) return "";
 
-  const normalized = `${String(value).replace(" ", "T")}Z`;
-  const date = new Date(normalized);
+  const date = parseSqlUtcDate(value);
 
   if (Number.isNaN(date.getTime())) {
     return String(value);
@@ -57,6 +56,37 @@ function formatChartDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    }).format(date);
+  }
+
+function parseSqlUtcDate(value) {
+  if (!value) return new Date(NaN);
+  return new Date(`${String(value).replace(" ", "T")}Z`);
+}
+
+function formatChartAxisTime(value) {
+  const date = parseSqlUtcDate(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value || "");
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatChartAxisDate(value) {
+  const date = parseSqlUtcDate(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: "2-digit",
+    day: "2-digit",
   }).format(date);
 }
 
@@ -1374,6 +1404,7 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
 
     return rows.slice(-72).map((row) => ({
       ...row,
+      parsedDate: parseSqlUtcDate(row.fecha),
       nivelEscalado: escalarNivel(row.nivel, config.min, config.max),
     }));
   }, [levelConfig, rows, tankKey]);
@@ -1392,7 +1423,7 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
 
   const width = 900;
   const height = 320;
-  const padding = 36;
+  const padding = 52;
   const minY = 0;
   const maxY = 100;
 
@@ -1411,6 +1442,26 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   };
 
   const pointsData = chartData.map(buildPoint);
+  const xAxisTicks = pointsData.filter((point, index, array) => {
+    if (index === 0 || index === array.length - 1) return true;
+
+    const currentDate = point.item.parsedDate;
+    const previousDate = array[index - 1]?.item?.parsedDate;
+
+    if (
+      Number.isNaN(currentDate?.getTime?.()) ||
+      Number.isNaN(previousDate?.getTime?.())
+    ) {
+      return false;
+    }
+
+    return (
+      currentDate.getHours() !== previousDate.getHours() ||
+      currentDate.getDate() !== previousDate.getDate() ||
+      currentDate.getMonth() !== previousDate.getMonth() ||
+      currentDate.getFullYear() !== previousDate.getFullYear()
+    );
+  });
   const points = pointsData.map((p) => `${p.x},${p.y}`).join(" ");
 
   return (
@@ -1443,23 +1494,62 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
             );
           })}
 
-          <line
-            x1={padding}
-            y1={height - padding}
-            x2={width - padding}
-            y2={height - padding}
-            className="chart-axis-line"
-          />
+            <line
+              x1={padding}
+              y1={height - padding}
+              x2={width - padding}
+              y2={height - padding}
+              className="chart-axis-line"
+            />
 
-          <line
-            x1={padding}
-            y1={padding}
-            x2={padding}
-            y2={height - padding}
-            className="chart-axis-line"
-          />
+            <line
+              x1={padding}
+              y1={padding}
+              x2={padding}
+              y2={height - padding}
+              className="chart-axis-line"
+            />
 
-          <polyline points={points} className="chart-line" fill="none" />
+            {xAxisTicks.map((point, index) => {
+              const previousTick = xAxisTicks[index - 1];
+              const currentDate = point.item.parsedDate;
+              const previousDate = previousTick?.item?.parsedDate;
+              const showDate =
+                index === 0 ||
+                !previousDate ||
+                currentDate.getDate() !== previousDate.getDate() ||
+                currentDate.getMonth() !== previousDate.getMonth() ||
+                currentDate.getFullYear() !== previousDate.getFullYear();
+
+              return (
+                <g key={`tick-${point.item.id}`}>
+                  <line
+                    x1={point.x}
+                    y1={height - padding}
+                    x2={point.x}
+                    y2={padding}
+                    className="chart-grid-line chart-grid-line--vertical"
+                  />
+                  <text
+                    x={point.x}
+                    y={height - padding + 22}
+                    className="chart-axis-text chart-axis-text--x"
+                    textAnchor="middle"
+                  >
+                    <tspan x={point.x} dy="0">
+                      {formatChartAxisTime(point.item.fecha)}
+                    </tspan>
+                    {showDate && (
+                      <tspan x={point.x} dy="14" className="chart-axis-date">
+                        {formatChartAxisDate(point.item.fecha)}
+                      </tspan>
+                    )}
+                  </text>
+                </g>
+              );
+            })}
+
+            <polyline points={points} className="chart-line" fill="none" />
 
           {pointsData.map((p) => (
             <circle
