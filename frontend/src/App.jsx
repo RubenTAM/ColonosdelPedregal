@@ -272,20 +272,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    const now = new Date();
-    const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-    const localDate = now.toISOString().slice(0, 10);
-    const pad = (value) => String(value).padStart(2, "0");
-
-    setQueryForm((prev) => ({
-      ...prev,
-      date: localDate,
-      startTime: `${pad(oneHourAgo.getHours())}:${pad(oneHourAgo.getMinutes())}`,
-      endTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-    }));
-  }, []);
-
-  useEffect(() => {
     const onResize = () => {
       const mobile = window.innerWidth <= 900;
       setIsMobile(mobile);
@@ -297,6 +283,12 @@ export default function App() {
 
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    if (activeView === "consultas") {
+      setActiveView("dashboard");
+    }
+  }, [activeView]);
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token");
@@ -820,20 +812,6 @@ export default function App() {
                 </div>
               </div>
             </div>
-          </section>
-        )}
-
-        {activeView === "consultas" && (
-          <section className="content">
-            <HistoricalQueryView
-              queryForm={queryForm}
-              setQueryForm={setQueryForm}
-              queryRows={queryRows}
-              queryLoading={queryLoading}
-              queryError={queryError}
-              levelConfig={levelConfig}
-              onSubmit={handleQuerySubmit}
-            />
           </section>
         )}
 
@@ -1683,140 +1661,6 @@ function TankGraphModal({ tankKey, levelConfig, onClose }) {
         </div>
       </div>
     </>
-  );
-}
-
-function HistoricalQueryView({
-  queryForm,
-  setQueryForm,
-  queryRows,
-  queryLoading,
-  queryError,
-  levelConfig,
-  onSubmit,
-}) {
-  const config =
-    levelConfig[queryForm.tankKey] || DEFAULT_LEVEL_CONFIG[queryForm.tankKey];
-  const scaledRows = queryRows.map((row) => ({
-    ...row,
-    nivelEscalado: escalarNivel(row.nivel, config.min, config.max),
-  }));
-
-  return (
-    <div className="query-page">
-      <div className="query-form-card">
-        <div className="query-form-card__intro">
-          <h2>Consulta de registros</h2>
-          <p>
-            Selecciona tanque, fecha y rango horario para ver los valores
-            historicos registrados.
-          </p>
-        </div>
-
-        <form className="query-form" onSubmit={onSubmit}>
-          <div className="query-form__grid">
-            <div className="login-field">
-              <label>Tanque</label>
-              <select
-                className="users-select"
-                value={queryForm.tankKey}
-                onChange={(e) =>
-                  setQueryForm((prev) => ({
-                    ...prev,
-                    tankKey: e.target.value,
-                  }))
-                }
-              >
-                {TANK_OPTIONS.map((tank) => (
-                  <option key={tank.key} value={tank.key}>
-                    {tank.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="login-field">
-              <label>Fecha</label>
-              <input
-                type="date"
-                value={queryForm.date}
-                onChange={(e) =>
-                  setQueryForm((prev) => ({
-                    ...prev,
-                    date: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="login-field">
-              <label>Hora inicio</label>
-              <input
-                type="time"
-                value={queryForm.startTime}
-                onChange={(e) =>
-                  setQueryForm((prev) => ({
-                    ...prev,
-                    startTime: e.target.value,
-                  }))
-                }
-              />
-            </div>
-
-            <div className="login-field">
-              <label>Hora fin</label>
-              <input
-                type="time"
-                value={queryForm.endTime}
-                onChange={(e) =>
-                  setQueryForm((prev) => ({
-                    ...prev,
-                    endTime: e.target.value,
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          {queryError && <div className="users-message">{queryError}</div>}
-
-          <div className="query-form__actions">
-            <button className="login-btn" type="submit" disabled={queryLoading}>
-              {queryLoading ? "Consultando..." : "Consultar"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div className="query-results-card">
-        <div className="query-results-card__header">
-          <h3>Log de resultados</h3>
-          <span>{scaledRows.length} registros</span>
-        </div>
-
-        {!scaledRows.length ? (
-          <div className="query-empty-state">
-            {queryLoading
-              ? "Buscando registros..."
-              : "Aqui apareceran los valores encontrados para tu consulta."}
-          </div>
-        ) : (
-          <div className="query-table">
-            <div className="query-table__head">
-              <div>Fecha y hora</div>
-              <div>Valor</div>
-            </div>
-
-            {scaledRows.map((row) => (
-              <div className="query-table__row" key={row.id}>
-                <div>{formatChartDateTime(row.fecha)}</div>
-                <div>{Math.round(row.nivelEscalado)}%</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
