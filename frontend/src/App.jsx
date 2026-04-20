@@ -129,11 +129,6 @@ function formatSqlUtcDate(date) {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
-function toSqlDateTimeString(dateValue, timeValue) {
-  if (!dateValue || !timeValue) return "";
-  return `${dateValue} ${timeValue}:00`;
-}
-
 function apiFetch(url, options = {}) {
   const token = localStorage.getItem("auth_token");
 
@@ -217,15 +212,6 @@ export default function App() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
   const [graphModalTank, setGraphModalTank] = useState(null);
-  const [queryForm, setQueryForm] = useState({
-    tankKey: "cinco",
-    date: "",
-    startTime: "",
-    endTime: "",
-  });
-  const [queryRows, setQueryRows] = useState([]);
-  const [queryLoading, setQueryLoading] = useState(false);
-  const [queryError, setQueryError] = useState("");
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -558,49 +544,6 @@ export default function App() {
         setUsers((prev) => prev.filter((u) => u.id !== id));
       })
       .catch((err) => setUserMessage(err.message));
-  };
-
-  const handleQuerySubmit = (e) => {
-    e.preventDefault();
-
-    const start = toSqlDateTimeString(queryForm.date, queryForm.startTime);
-    const end = toSqlDateTimeString(queryForm.date, queryForm.endTime);
-
-    if (!start || !end) {
-      setQueryError("Completa fecha y horas validas.");
-      setQueryRows([]);
-      return;
-    }
-
-    if (start > end) {
-      setQueryError("La hora inicial debe ser menor o igual a la final.");
-      setQueryRows([]);
-      return;
-    }
-
-    setQueryLoading(true);
-    setQueryError("");
-
-    const params = new URLSearchParams({
-      tankKey: queryForm.tankKey,
-      start,
-      end,
-    });
-
-    apiFetch(`/api/historico-query?${params.toString()}`)
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al consultar");
-        return data;
-      })
-      .then((data) => {
-        setQueryRows(Array.isArray(data.rows) ? data.rows : []);
-      })
-      .catch((err) => {
-        setQueryError(err.message);
-        setQueryRows([]);
-      })
-      .finally(() => setQueryLoading(false));
   };
 
   if (!authChecked) {

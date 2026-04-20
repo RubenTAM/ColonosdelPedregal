@@ -156,6 +156,11 @@ button {
   gap: 12px;
 }
 
+/* Oculta temporalmente la opcion de Consultas del menu lateral. */
+.sidebar__nav .nav-item:nth-of-type(3) {
+  display: none;
+}
+
 .nav-item {
   border: none;
   background: transparent;
