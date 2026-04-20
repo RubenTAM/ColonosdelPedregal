@@ -14,7 +14,7 @@ app.use(express.json());
 const PORT = 3001;
 const MQTT_URL = "mqtt://18.216.64.219:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
-let HISTORICAL_TABLE = "niveles_historicos_v2";
+const HISTORICAL_TABLE = "niveles_historicos_v2";
 
 const DEFAULT_LEVEL_CONFIG = {
   planta: { min: 0, max: 140 },
@@ -95,32 +95,6 @@ const HISTORICAL_TANK_COLUMNS = {
   cuadrada: "cuadrada",
 };
 
-function resolveHistoricalTable() {
-  db.all(
-    `
-    SELECT name
-    FROM sqlite_master
-    WHERE type = 'table' AND name IN ('niveles_historicos_v2', 'niveles_historicos')
-    `,
-    [],
-    (err, rows) => {
-      if (err) {
-        console.error("No se pudo resolver la tabla historica:", err.message);
-        return;
-      }
-
-      const names = new Set((rows || []).map((row) => row.name));
-
-      if (names.has("niveles_historicos_v2")) {
-        HISTORICAL_TABLE = "niveles_historicos_v2";
-      } else if (names.has("niveles_historicos")) {
-        HISTORICAL_TABLE = "niveles_historicos";
-      }
-
-      console.log("Tabla historica activa:", HISTORICAL_TABLE);
-    }
-  );
-}
 
 /* TOPICS MQTT - PLC STATUS / BIT DE VIDA */
 const topicToKeyPlc = {
@@ -307,7 +281,6 @@ function guardarHistorico() {
   );
 }
 
-resolveHistoricalTable();
 setTimeout(guardarHistorico, 1500);
 setInterval(guardarHistorico, 600000);
 
