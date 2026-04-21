@@ -71,6 +71,7 @@ let plantaBotones = {
 };
 
 let guardandoHistorico = false;
+const plantaEventoPrevio = {};
 
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
@@ -149,6 +150,52 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_7: "trenC",
 };
 
+const plantaEquipoEventos = {
+  bombaA: { equipo: "Bomba A", tipo: "bomba" },
+  bombaB: { equipo: "Bomba B", tipo: "bomba" },
+  bombaC: { equipo: "Bomba C", tipo: "bomba" },
+  trenA: { equipo: "Tren A", tipo: "tren" },
+  trenB: { equipo: "Tren B", tipo: "tren" },
+  trenC: { equipo: "Tren C", tipo: "tren" },
+};
+
+function fechaLocalTijuana() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Tijuana",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  })
+    .formatToParts(new Date())
+    .reduce((acc, part) => {
+      acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function guardarEventoSistema({ zona, equipo, tipo, estado, mensaje }) {
+  db.run(
+    `
+    INSERT INTO eventos_sistema (zona, equipo, tipo, estado, mensaje, fecha)
+    VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [zona, equipo, tipo, estado, mensaje, fechaLocalTijuana()],
+    (err) => {
+      if (err) {
+        console.error("Error al guardar evento:", err.message);
+      } else {
+        console.log("Evento guardado:", mensaje);
+      }
+    }
+  );
+}
+
 const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
@@ -189,7 +236,26 @@ client.on("message", (topic, message) => {
     const valorNormalizado =
       texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
 
+    const valorAnterior = plantaEventoPrevio[key];
     plantaBotones[key] = valorNormalizado;
+    plantaEventoPrevio[key] = valorNormalizado;
+
+    if (
+      typeof valorAnterior !== "undefined" &&
+      Number(valorAnterior) !== valorNormalizado
+    ) {
+      const configEvento = plantaEquipoEventos[key];
+      const estado = valorNormalizado === 1 ? "encendido" : "apagado";
+      const mensaje = `${configEvento.equipo} ${estado}`;
+
+      guardarEventoSistema({
+        zona: "PLANTA",
+        equipo: configEvento.equipo,
+        tipo: configEvento.tipo,
+        estado,
+        mensaje,
+      });
+    }
 
     console.log(`Planta botón ${key}:`, valorNormalizado);
     return;
@@ -534,6 +600,35 @@ app.get("/api/niveles", (req, res) => {
     bombasCaboviejo,
     plantaBotones,
   });
+});
+
+app.get("/api/eventos", verifyToken, (req, res) => {
+  const zona = String(req.query.zona || "todos").trim().toUpperCase();
+  const params = [];
+  let where = "";
+
+  if (zona && zona !== "TODOS") {
+    where = "WHERE zona = ?";
+    params.push(zona);
+  }
+
+  db.all(
+    `
+    SELECT id, zona, equipo, tipo, estado, mensaje, fecha
+    FROM eventos_sistema
+    ${where}
+    ORDER BY fecha DESC, id DESC
+    LIMIT 300
+    `,
+    params,
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({ rows });
+    }
+  );
 });
 
 app.get("/api/historico", (req, res) => {

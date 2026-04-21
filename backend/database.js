@@ -105,6 +105,28 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS eventos_sistema (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      zona TEXT NOT NULL,
+      equipo TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      estado TEXT NOT NULL,
+      mensaje TEXT NOT NULL,
+      fecha TEXT NOT NULL
+    )
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_eventos_sistema_fecha
+    ON eventos_sistema(fecha)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_eventos_sistema_zona
+    ON eventos_sistema(zona)
+  `);
+
   [
     "planta",
     "cabo_viejo",

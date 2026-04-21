@@ -64,6 +64,25 @@ function parseSqlUtcDate(value) {
   return new Date(`${String(value).replace(" ", "T")}Z`);
 }
 
+function formatLocalEventDate(value) {
+  if (!value) return "";
+
+  const date = new Date(String(value).replace(" ", "T"));
+
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
+}
+
 function formatChartAxisTime(value) {
   const date = parseSqlUtcDate(value);
 
@@ -200,6 +219,9 @@ export default function App() {
 
   const [users, setUsers] = useState([]);
   const [loginLogs, setLoginLogs] = useState([]);
+  const [historicoEventos, setHistoricoEventos] = useState([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [historicoZona, setHistoricoZona] = useState("todos");
   const [userMessage, setUserMessage] = useState("");
   const [userForm, setUserForm] = useState({
     username: "",
@@ -366,6 +388,37 @@ export default function App() {
       .then((data) => setLoginLogs(Array.isArray(data) ? data : []));
   }, [authUser, activeView]);
 
+  useEffect(() => {
+    if (!authUser || activeView !== "historico") return;
+
+    const cargarEventos = () => {
+      setHistoricoLoading(true);
+      const params = new URLSearchParams();
+
+      if (historicoZona !== "todos") {
+        params.set("zona", historicoZona);
+      }
+
+      const query = params.toString();
+
+      apiFetch(`/api/eventos${query ? `?${query}` : ""}`)
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al cargar eventos");
+          return data;
+        })
+        .then((data) => {
+          setHistoricoEventos(Array.isArray(data.rows) ? data.rows : []);
+        })
+        .catch((err) => console.error("Error al cargar historico:", err))
+        .finally(() => setHistoricoLoading(false));
+    };
+
+    cargarEventos();
+    const interval = setInterval(cargarEventos, 5000);
+    return () => clearInterval(interval);
+  }, [authUser, activeView, historicoZona]);
+
   const nivelesEscalados = {
     planta: escalarNivel(
       niveles.planta,
@@ -443,29 +496,9 @@ export default function App() {
     { title: "", level: null, plc: null, empty: true },
   ];
 
-  const alarmasDemo = [
-    {
-      id: 1,
-      zona: "FALCONE",
-      mensaje: "Nivel bajo detectado en tanque",
-      fecha: "2026-03-10 10:21:14",
-      prioridad: "alta",
-    },
-    {
-      id: 2,
-      zona: "CABO VIEJO",
-      mensaje: "Bomba P70B fuera de servicio",
-      fecha: "2026-03-10 10:18:03",
-      prioridad: "media",
-    },
-    {
-      id: 3,
-      zona: "PLANTA",
-      mensaje: "Reset de contadores pendiente",
-      fecha: "2026-03-10 09:56:41",
-      prioridad: "baja",
-    },
-  ];
+  const eventosPlanta = historicoEventos.filter(
+    (evento) => evento.zona === "PLANTA"
+  );
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -773,40 +806,69 @@ export default function App() {
                 <div className="historico-stats">
                   <div className="historico-stat">
                     <span>Total</span>
-                    <strong>{alarmasDemo.length}</strong>
+                    <strong>{historicoEventos.length}</strong>
                   </div>
                   <div className="historico-stat">
-                    <span>Altas</span>
-                    <strong>
-                      {
-                        alarmasDemo.filter((a) => a.prioridad === "alta").length
-                      }
-                    </strong>
+                    <span>Planta</span>
+                    <strong>{eventosPlanta.length}</strong>
                   </div>
                 </div>
               </div>
 
               <div className="historico-log-card">
+                <div className="historico-filter-bar">
+                  <div>
+                    <h3>Eventos registrados</h3>
+                    <p>
+                      Cambios de estado guardados con fecha y hora local del
+                      sistema.
+                    </p>
+                  </div>
+
+                  <label className="historico-filter">
+                    <span>Zona</span>
+                    <select
+                      value={historicoZona}
+                      onChange={(e) => setHistoricoZona(e.target.value)}
+                    >
+                      <option value="todos">Todos</option>
+                      <option value="PLANTA">Planta</option>
+                    </select>
+                  </label>
+                </div>
+
                 <div className="historico-log-table">
                   <div className="historico-log-head">
                     <div>Zona</div>
                     <div>Mensaje</div>
-                    <div>Prioridad</div>
+                    <div>Equipo</div>
                     <div>Fecha</div>
                   </div>
 
-                  {alarmasDemo.map((alarma) => (
-                    <div className="historico-log-row" key={alarma.id}>
-                      <div className="historico-zone">{alarma.zona}</div>
-                      <div className="historico-message">{alarma.mensaje}</div>
+                  {historicoLoading && !historicoEventos.length && (
+                    <div className="historico-empty-row">Cargando eventos...</div>
+                  )}
+
+                  {!historicoLoading && !historicoEventos.length && (
+                    <div className="historico-empty-row">
+                      Todavia no hay eventos guardados para este filtro.
+                    </div>
+                  )}
+
+                  {historicoEventos.map((evento) => (
+                    <div className="historico-log-row" key={evento.id}>
+                      <div className="historico-zone">{evento.zona}</div>
+                      <div className="historico-message">{evento.mensaje}</div>
                       <div>
                         <span
-                          className={`historico-badge historico-badge--${alarma.prioridad}`}
+                          className={`historico-badge historico-badge--${evento.estado}`}
                         >
-                          {alarma.prioridad}
+                          {evento.equipo}
                         </span>
                       </div>
-                      <div className="historico-date">{alarma.fecha}</div>
+                      <div className="historico-date">
+                        {formatLocalEventDate(evento.fecha)}
+                      </div>
                     </div>
                   ))}
                 </div>
