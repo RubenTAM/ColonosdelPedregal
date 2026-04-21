@@ -1355,16 +1355,65 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
 
       const query = params.toString();
 
-      fetch(`/api/historico/${tankKey}${query ? `?${query}` : ""}`)
-        .then((res) => res.json())
-        .then((data) => {
-          const fetchedRows = Array.isArray(data?.rows) ? data.rows : [];
+      const historyRequest = fetch(
+        `/api/historico/${tankKey}${query ? `?${query}` : ""}`
+      ).then((res) => res.json());
+
+      const liveRequest = windowEnd
+        ? Promise.resolve(null)
+        : fetch("/api/niveles")
+            .then((res) => res.json())
+            .catch(() => null);
+
+      Promise.all([historyRequest, liveRequest])
+        .then(([data, liveData]) => {
+          let fetchedRows = Array.isArray(data?.rows) ? data.rows : [];
+
+          if (!windowEnd) {
+            const now = new Date();
+            const cutoff = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+
+            fetchedRows = fetchedRows.filter((row) => {
+              const rowDate = parseSqlUtcDate(row.fecha);
+              return (
+                !Number.isNaN(rowDate.getTime()) &&
+                rowDate.getTime() >= cutoff.getTime()
+              );
+            });
+
+            const liveValue = Number(liveData?.niveles?.[tankKey]);
+
+            if (!Number.isNaN(liveValue)) {
+              const lastRowDate = parseSqlUtcDate(
+                fetchedRows[fetchedRows.length - 1]?.fecha
+              );
+              const shouldAppendLive =
+                Number.isNaN(lastRowDate.getTime()) ||
+                now.getTime() - lastRowDate.getTime() > 30000;
+
+              if (shouldAppendLive) {
+                fetchedRows.push({
+                  id: `live-${tankKey}`,
+                  nivel: liveValue,
+                  fecha: formatSqlUtcDate(now),
+                  live: true,
+                });
+              }
+            }
+          }
+
           setRows(fetchedRows);
           setRangeInfo({
-            start: data?.range?.start || null,
-            end: data?.range?.end || null,
+            start: fetchedRows[0]?.fecha || data?.range?.start || null,
+            end:
+              fetchedRows[fetchedRows.length - 1]?.fecha ||
+              data?.range?.end ||
+              null,
             min: data?.range?.min || null,
-            max: data?.range?.max || null,
+            max:
+              !windowEnd && fetchedRows[fetchedRows.length - 1]?.fecha
+                ? fetchedRows[fetchedRows.length - 1].fecha
+                : data?.range?.max || null,
           });
           setLoading(false);
         })
