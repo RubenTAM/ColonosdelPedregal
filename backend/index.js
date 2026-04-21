@@ -72,6 +72,7 @@ let plantaBotones = {
 
 let guardandoHistorico = false;
 const plantaEventoPrevio = {};
+const caboViejoEventoPrevio = {};
 
 /* TOPICS MQTT - NIVELES */
 const topicToKeyNivel = {
@@ -138,6 +139,12 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
   Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
+};
+
+const caboViejoP70AModos = {
+  man: "Manual",
+  off: "Apagado",
+  auto: "Automatico",
 };
 
 // TOPICS PLANTA ESTADOS 
@@ -268,7 +275,27 @@ client.on("message", (topic, message) => {
     const valorNormalizado =
       texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
 
+    const valorAnterior = caboViejoEventoPrevio[`${bomba}.${campo}`];
     bombasCaboviejo[bomba][campo] = valorNormalizado;
+    caboViejoEventoPrevio[`${bomba}.${campo}`] = valorNormalizado;
+
+    if (
+      bomba === "p70a" &&
+      caboViejoP70AModos[campo] &&
+      valorNormalizado === 1 &&
+      Number(valorAnterior) !== 1
+    ) {
+      const modo = caboViejoP70AModos[campo];
+      const mensaje = `P70A puesta en modo ${modo}`;
+
+      guardarEventoSistema({
+        zona: "CABO VIEJO",
+        equipo: "P70A",
+        tipo: "bomba",
+        estado: campo,
+        mensaje,
+      });
+    }
 
     console.log(`Bomba ${bomba} - ${campo}:`, valorNormalizado);
     return;

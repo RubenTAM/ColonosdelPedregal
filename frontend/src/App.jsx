@@ -499,6 +499,9 @@ export default function App() {
   const eventosPlanta = historicoEventos.filter(
     (evento) => evento.zona === "PLANTA"
   );
+  const eventosCaboViejo = historicoEventos.filter(
+    (evento) => evento.zona === "CABO VIEJO"
+  );
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -812,6 +815,10 @@ export default function App() {
                     <span>Planta</span>
                     <strong>{eventosPlanta.length}</strong>
                   </div>
+                  <div className="historico-stat">
+                    <span>Cabo Viejo</span>
+                    <strong>{eventosCaboViejo.length}</strong>
+                  </div>
                 </div>
               </div>
 
@@ -833,6 +840,7 @@ export default function App() {
                     >
                       <option value="todos">Todos</option>
                       <option value="PLANTA">Planta</option>
+                      <option value="CABO VIEJO">Cabo Viejo</option>
                     </select>
                   </label>
                 </div>

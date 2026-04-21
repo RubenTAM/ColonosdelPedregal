@@ -1391,6 +1391,21 @@ button {
   color: #465875;
 }
 
+.historico-badge--man {
+  background: rgba(63, 93, 165, 0.14);
+  color: #334f92;
+}
+
+.historico-badge--auto {
+  background: rgba(78, 164, 90, 0.14);
+  color: #2d7b38;
+}
+
+.historico-badge--off {
+  background: rgba(96, 112, 132, 0.14);
+  color: #465875;
+}
+
 .query-page {
   display: flex;
   flex-direction: column;
