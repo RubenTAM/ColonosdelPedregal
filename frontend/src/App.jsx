@@ -1339,7 +1339,6 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   useEffect(() => {
     setLoading(true);
     setHoveredPoint(null);
-    setWindowEnd(null);
 
     const fetchRows = () => {
       const params = new URLSearchParams();
@@ -1382,6 +1381,10 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
       if (interval) clearInterval(interval);
     };
   }, [tankKey, windowEnd]);
+
+  useEffect(() => {
+    setWindowEnd(null);
+  }, [tankKey]);
 
   const chartData = useMemo(() => {
     const config = levelConfig[tankKey] || DEFAULT_LEVEL_CONFIG[tankKey];
@@ -1426,8 +1429,13 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   };
 
   const pointsData = chartData.map(buildPoint);
-  const xAxisTicks = pointsData.filter((point, index, array) => {
-    if (index === 0 || index === array.length - 1) return true;
+  const xAxisTicks = [];
+
+  pointsData.forEach((point, index, array) => {
+    if (index === 0) {
+      xAxisTicks.push(point);
+      return;
+    }
 
     const currentDate = point.item.parsedDate;
     const previousDate = array[index - 1]?.item?.parsedDate;
@@ -1436,15 +1444,22 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
       Number.isNaN(currentDate?.getTime?.()) ||
       Number.isNaN(previousDate?.getTime?.())
     ) {
-      return false;
+      return;
     }
 
-    return (
+    const hourChanged =
       currentDate.getHours() !== previousDate.getHours() ||
       currentDate.getDate() !== previousDate.getDate() ||
       currentDate.getMonth() !== previousDate.getMonth() ||
-      currentDate.getFullYear() !== previousDate.getFullYear()
-    );
+      currentDate.getFullYear() !== previousDate.getFullYear();
+
+    if (!hourChanged) return;
+
+    const lastTick = xAxisTicks[xAxisTicks.length - 1];
+
+    if (!lastTick || Math.abs(point.x - lastTick.x) >= 70) {
+      xAxisTicks.push(point);
+    }
   });
   const points = pointsData.map((p) => `${p.x},${p.y}`).join(" ");
   const availableMin = parseSqlUtcDate(rangeInfo.min);
