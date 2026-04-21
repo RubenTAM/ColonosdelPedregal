@@ -1328,7 +1328,7 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const [windowEnd, setWindowEnd] = useState(null);
+  const [windowOffset, setWindowOffset] = useState(0);
   const [rangeInfo, setRangeInfo] = useState({
     start: null,
     end: null,
@@ -1342,78 +1342,27 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
 
     const fetchRows = () => {
       const params = new URLSearchParams();
+      const now = new Date();
+      const endDate = new Date(
+        now.getTime() - windowOffset * 12 * 60 * 60 * 1000
+      );
+      const startDate = new Date(endDate.getTime() - 12 * 60 * 60 * 1000);
 
-      if (windowEnd) {
-        const endDate = parseSqlUtcDate(windowEnd);
-
-        if (!Number.isNaN(endDate.getTime())) {
-          const startDate = new Date(endDate.getTime() - 12 * 60 * 60 * 1000);
-          params.set("start", formatSqlUtcDate(startDate));
-          params.set("end", formatSqlUtcDate(endDate));
-        }
-      }
+      params.set("start", formatSqlUtcDate(startDate));
+      params.set("end", formatSqlUtcDate(endDate));
 
       const query = params.toString();
 
-      const historyRequest = fetch(
-        `/api/historico/${tankKey}${query ? `?${query}` : ""}`
-      ).then((res) => res.json());
-
-      const liveRequest = windowEnd
-        ? Promise.resolve(null)
-        : fetch("/api/niveles")
-            .then((res) => res.json())
-            .catch(() => null);
-
-      Promise.all([historyRequest, liveRequest])
-        .then(([data, liveData]) => {
-          let fetchedRows = Array.isArray(data?.rows) ? data.rows : [];
-
-          if (!windowEnd) {
-            const now = new Date();
-            const cutoff = new Date(now.getTime() - 12 * 60 * 60 * 1000);
-
-            fetchedRows = fetchedRows.filter((row) => {
-              const rowDate = parseSqlUtcDate(row.fecha);
-              return (
-                !Number.isNaN(rowDate.getTime()) &&
-                rowDate.getTime() >= cutoff.getTime()
-              );
-            });
-
-            const liveValue = Number(liveData?.niveles?.[tankKey]);
-
-            if (!Number.isNaN(liveValue)) {
-              const lastRowDate = parseSqlUtcDate(
-                fetchedRows[fetchedRows.length - 1]?.fecha
-              );
-              const shouldAppendLive =
-                Number.isNaN(lastRowDate.getTime()) ||
-                now.getTime() - lastRowDate.getTime() > 30000;
-
-              if (shouldAppendLive) {
-                fetchedRows.push({
-                  id: `live-${tankKey}`,
-                  nivel: liveValue,
-                  fecha: formatSqlUtcDate(now),
-                  live: true,
-                });
-              }
-            }
-          }
-
+      fetch(`/api/historico/${tankKey}?${query}`)
+        .then((res) => res.json())
+        .then((data) => {
+          const fetchedRows = Array.isArray(data?.rows) ? data.rows : [];
           setRows(fetchedRows);
           setRangeInfo({
-            start: fetchedRows[0]?.fecha || data?.range?.start || null,
-            end:
-              fetchedRows[fetchedRows.length - 1]?.fecha ||
-              data?.range?.end ||
-              null,
+            start: formatSqlUtcDate(startDate),
+            end: formatSqlUtcDate(endDate),
             min: data?.range?.min || null,
-            max:
-              !windowEnd && fetchedRows[fetchedRows.length - 1]?.fecha
-                ? fetchedRows[fetchedRows.length - 1].fecha
-                : data?.range?.max || null,
+            max: data?.range?.max || null,
           });
           setLoading(false);
         })
@@ -1424,15 +1373,15 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
     };
 
     fetchRows();
-    const interval = windowEnd ? null : setInterval(fetchRows, 10000);
+    const interval = windowOffset === 0 ? setInterval(fetchRows, 10000) : null;
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [tankKey, windowEnd]);
+  }, [tankKey, windowOffset]);
 
   useEffect(() => {
-    setWindowEnd(null);
+    setWindowOffset(0);
   }, [tankKey]);
 
   const chartData = useMemo(() => {
@@ -1512,41 +1461,23 @@ function TankHistoryChart({ tankKey, tankLabel, levelConfig }) {
   });
   const points = pointsData.map((p) => `${p.x},${p.y}`).join(" ");
   const availableMin = parseSqlUtcDate(rangeInfo.min);
-  const availableMax = parseSqlUtcDate(rangeInfo.max);
   const currentWindowStart = parseSqlUtcDate(rangeInfo.start);
-  const currentWindowEnd = parseSqlUtcDate(rangeInfo.end);
 
   const canGoBack =
     !Number.isNaN(availableMin.getTime()) &&
     !Number.isNaN(currentWindowStart.getTime()) &&
     currentWindowStart.getTime() > availableMin.getTime();
 
-  const canGoForward =
-    !Number.isNaN(availableMax.getTime()) &&
-    !Number.isNaN(currentWindowEnd.getTime()) &&
-    currentWindowEnd.getTime() < availableMax.getTime();
+  const canGoForward = windowOffset > 0;
 
   const handlePreviousWindow = () => {
-    if (!canGoBack || Number.isNaN(currentWindowStart.getTime())) return;
-    setWindowEnd(formatSqlUtcDate(currentWindowStart));
+    if (!canGoBack) return;
+    setWindowOffset((current) => current + 1);
   };
 
   const handleNextWindow = () => {
-    if (!canGoForward || Number.isNaN(currentWindowEnd.getTime())) return;
-
-    const nextEnd = new Date(
-      Math.min(
-        currentWindowEnd.getTime() + 12 * 60 * 60 * 1000,
-        availableMax.getTime()
-      )
-    );
-
-    if (nextEnd.getTime() >= availableMax.getTime()) {
-      setWindowEnd(null);
-      return;
-    }
-
-    setWindowEnd(formatSqlUtcDate(nextEnd));
+    if (!canGoForward) return;
+    setWindowOffset((current) => Math.max(0, current - 1));
   };
 
   return (
