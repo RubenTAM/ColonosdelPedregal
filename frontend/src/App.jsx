@@ -270,6 +270,7 @@ export default function App() {
   const [configModalOpen, setConfigModalOpen] = useState(false);
   const [selectedTank, setSelectedTank] = useState(null);
   const [graphModalTank, setGraphModalTank] = useState(null);
+  const [pumpConfirm, setPumpConfirm] = useState(null);
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -299,6 +300,23 @@ export default function App() {
 
   const closeGraphModal = () => {
     setGraphModalTank(null);
+  };
+
+  const openPumpConfirm = (pumpName, mode) => {
+    setPumpConfirm({ pumpName, mode });
+  };
+
+  const closePumpConfirm = () => {
+    setPumpConfirm(null);
+  };
+
+  const confirmPumpAssignment = () => {
+    if (!pumpConfirm) return;
+
+    console.log(
+      `Asignacion confirmada: ${pumpConfirm.pumpName} ${pumpConfirm.mode}`
+    );
+    closePumpConfirm();
   };
 
   const saveTankConfig = () => {
@@ -787,6 +805,9 @@ export default function App() {
                 bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
                 onOpenGraph={() => openGraphModal("cabo_viejo")}
+                onRequestMode={(pumpName, mode) =>
+                  openPumpConfirm(pumpName, mode)
+                }
               />
 
               <FalconeCard
@@ -1123,6 +1144,15 @@ export default function App() {
           onClose={closeGraphModal}
         />
       )}
+
+      {pumpConfirm && (
+        <PumpConfirmModal
+          pumpName={pumpConfirm.pumpName}
+          mode={pumpConfirm.mode}
+          onCancel={closePumpConfirm}
+          onConfirm={confirmPumpAssignment}
+        />
+      )}
     </div>
   );
 }
@@ -1300,6 +1330,7 @@ function CaboViejoCard({
   bombasCaboviejo,
   onOpenConfig,
   onOpenGraph,
+  onRequestMode,
 }) {
   return (
     <article className="dashboard-card">
@@ -1307,7 +1338,12 @@ function CaboViejoCard({
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
-        <PumpBox name="P70A" runtime={p70a} modes={bombasCaboviejo.p70a} />
+        <PumpBox
+          name="P70A"
+          runtime={p70a}
+          modes={bombasCaboviejo.p70a}
+          onRequestMode={onRequestMode}
+        />
         <PumpBox name="P70B" runtime={p70b} modes={bombasCaboviejo.p70b} />
         <PumpBox name="P71A" runtime={p71a} modes={bombasCaboviejo.p71a} />
         <PumpBox name="P71B" runtime={p71b} modes={bombasCaboviejo.p71b} />
@@ -1409,13 +1445,27 @@ function CardHeader({ title, onOpenConfig }) {
   );
 }
 
-function PumpBox({ name, runtime, modes = {}, alert = false }) {
+function PumpBox({ name, runtime, modes = {}, alert = false, onRequestMode }) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
   const autoActivo = Number(modes.auto) === 1;
   const runningActivo = Number(modes.running) === 1;
+  const canRequestMode = typeof onRequestMode === "function";
 
   const stateText = runningActivo ? "ENCENDIDO" : "APAGADO";
+  const requestMode = (mode) => {
+    if (!canRequestMode) return;
+    onRequestMode(name, mode);
+  };
+  const buttonProps = (mode) =>
+    canRequestMode
+      ? {
+          type: "button",
+          onClick: () => requestMode(mode),
+        }
+      : {
+          type: "button",
+        };
 
   return (
     <div className="pump-box">
@@ -1428,15 +1478,24 @@ function PumpBox({ name, runtime, modes = {}, alert = false }) {
       </div>
 
       <div className="mode-grid">
-        <button className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${manActivo ? "mode-btn--active" : ""}`}
+          {...buttonProps("HAND")}
+        >
           HAND
         </button>
 
-        <button className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${offActivo ? "mode-btn--active" : ""}`}
+          {...buttonProps("OFF")}
+        >
           OFF
         </button>
 
-        <button className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}>
+        <button
+          className={`mode-btn ${autoActivo ? "mode-btn--active" : ""}`}
+          {...buttonProps("AUTO")}
+        >
           AUTO
         </button>
       </div>
@@ -1799,6 +1858,56 @@ function TankGraphModal({ tankKey, levelConfig, onClose }) {
               tankLabel={tankLabel}
             levelConfig={levelConfig}
           />
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PumpConfirmModal({ pumpName, mode, onCancel, onConfirm }) {
+  const modeLabel = {
+    HAND: "Manual",
+    OFF: "Apagado",
+    AUTO: "Automatico",
+  }[mode] || mode;
+
+  return (
+    <>
+      <div className="modal-overlay" onClick={onCancel} />
+      <div className="pump-confirm-modal">
+        <div className="pump-confirm-modal__header">
+          <h3>Confirmar asignacion</h3>
+          <button
+            type="button"
+            className="pump-confirm-modal__close"
+            onClick={onCancel}
+          >
+            X
+          </button>
+        </div>
+
+        <div className="pump-confirm-modal__body">
+          <p>Deseas confirmar esta asignacion?</p>
+          <strong>
+            {pumpName} {"->"} {modeLabel}
+          </strong>
+
+          <div className="pump-confirm-modal__actions">
+            <button
+              type="button"
+              className="pump-confirm-modal__cancel"
+              onClick={onCancel}
+            >
+              No
+            </button>
+            <button
+              type="button"
+              className="pump-confirm-modal__confirm"
+              onClick={onConfirm}
+            >
+              Si
+            </button>
+          </div>
         </div>
       </div>
     </>
