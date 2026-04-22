@@ -298,8 +298,9 @@ client.on("message", (topic, message) => {
       Number(valorAnterior) !== valorNormalizado
     ) {
       const equipo = caboViejoBombasEventos[bomba];
-      const estado = valorNormalizado === 1 ? "encendida" : "apagada";
-      const mensaje = `${equipo} ${estado}`;
+      const estado = valorNormalizado === 1 ? "encendido" : "apagado";
+      const accion = valorNormalizado === 1 ? "Encendida" : "Apagada";
+      const mensaje = `${equipo} ${accion}`;
 
       guardarEventoSistema({
         zona: "CABO VIEJO",
