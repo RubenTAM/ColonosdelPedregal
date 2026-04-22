@@ -147,6 +147,13 @@ const caboViejoP70AModos = {
   auto: "Automatico",
 };
 
+const caboViejoBombasEventos = {
+  p70a: "P70A",
+  p70b: "P70B",
+  p71a: "P71A",
+  p71b: "P71B",
+};
+
 // TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {
   Planta_Bool_2: "bombaA",
@@ -284,6 +291,24 @@ client.on("message", (topic, message) => {
     const valorAnterior = caboViejoEventoPrevio[`${bomba}.${campo}`];
     bombasCaboviejo[bomba][campo] = valorNormalizado;
     caboViejoEventoPrevio[`${bomba}.${campo}`] = valorNormalizado;
+
+    if (
+      campo === "running" &&
+      typeof valorAnterior !== "undefined" &&
+      Number(valorAnterior) !== valorNormalizado
+    ) {
+      const equipo = caboViejoBombasEventos[bomba];
+      const estado = valorNormalizado === 1 ? "encendida" : "apagada";
+      const mensaje = `${equipo} ${estado}`;
+
+      guardarEventoSistema({
+        zona: "CABO VIEJO",
+        equipo,
+        tipo: "bomba",
+        estado,
+        mensaje,
+      });
+    }
 
     if (
       bomba === "p70a" &&
