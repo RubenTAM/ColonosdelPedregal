@@ -448,6 +448,9 @@ export default function App() {
     const cargarEventos = () => {
       setHistoricoLoading(true);
       const params = new URLSearchParams();
+      const now = new Date();
+      const liveEndDate = formatDateInput(now);
+      const liveEndTime = formatTimeInput(now);
 
       if (historicoZona !== "todos") {
         params.set("zona", historicoZona);
@@ -459,10 +462,22 @@ export default function App() {
         "00:00"
       );
       const end = buildLocalDateTime(
-        historicoFiltro.endDate,
-        historicoFiltro.endTime,
+        liveEndDate,
+        liveEndTime,
         "23:59"
       );
+
+      setHistoricoFiltro((prev) => {
+        if (prev.endDate === liveEndDate && prev.endTime === liveEndTime) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          endDate: liveEndDate,
+          endTime: liveEndTime,
+        };
+      });
 
       if (start) params.set("start", start);
       if (end) params.set("end", end);
@@ -484,7 +499,21 @@ export default function App() {
 
     cargarEventos();
     const interval = setInterval(cargarEventos, 5000);
-    return () => clearInterval(interval);
+
+    const recargarSiVisible = () => {
+      if (document.visibilityState !== "hidden") {
+        cargarEventos();
+      }
+    };
+
+    window.addEventListener("focus", recargarSiVisible);
+    document.addEventListener("visibilitychange", recargarSiVisible);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", recargarSiVisible);
+      document.removeEventListener("visibilitychange", recargarSiVisible);
+    };
   }, [authUser, activeView, historicoZona, historicoFiltro]);
 
   const nivelesEscalados = {
