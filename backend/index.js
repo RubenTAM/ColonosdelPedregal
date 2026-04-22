@@ -166,6 +166,23 @@ const plantaEquipoEventos = {
   trenC: { equipo: "Tren C", tipo: "tren" },
 };
 
+function procesarEventoPlanta(key, valorAnterior, valorNuevo) {
+  const configEvento = plantaEquipoEventos[key];
+
+  if (!configEvento || Number(valorAnterior) === Number(valorNuevo)) return;
+
+  const estado = Number(valorNuevo) === 1 ? "encendido" : "apagado";
+  const mensaje = `${configEvento.equipo} ${estado}`;
+
+  guardarEventoSistema({
+    zona: "PLANTA",
+    equipo: configEvento.equipo,
+    tipo: configEvento.tipo,
+    estado,
+    mensaje,
+  });
+}
+
 function fechaLocalTijuana() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Tijuana",
@@ -243,26 +260,15 @@ client.on("message", (topic, message) => {
     const valorNormalizado =
       texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
 
-    const valorAnterior = plantaEventoPrevio[key];
+    const valorAnterior =
+      Object.prototype.hasOwnProperty.call(plantaEventoPrevio, key)
+        ? plantaEventoPrevio[key]
+        : plantaBotones[key];
+
     plantaBotones[key] = valorNormalizado;
     plantaEventoPrevio[key] = valorNormalizado;
 
-    if (
-      typeof valorAnterior !== "undefined" &&
-      Number(valorAnterior) !== valorNormalizado
-    ) {
-      const configEvento = plantaEquipoEventos[key];
-      const estado = valorNormalizado === 1 ? "encendido" : "apagado";
-      const mensaje = `${configEvento.equipo} ${estado}`;
-
-      guardarEventoSistema({
-        zona: "PLANTA",
-        equipo: configEvento.equipo,
-        tipo: configEvento.tipo,
-        estado,
-        mensaje,
-      });
-    }
+    procesarEventoPlanta(key, valorAnterior, valorNormalizado);
 
     console.log(`Planta botón ${key}:`, valorNormalizado);
     return;
