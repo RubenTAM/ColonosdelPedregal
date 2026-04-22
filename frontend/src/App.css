@@ -627,7 +627,8 @@ button {
 }
 
 .mode-btn:disabled {
-  cursor: default;
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .warning-text {
@@ -2398,6 +2399,17 @@ button {
   display: block;
   color: #203866;
   font-size: 22px;
+}
+
+.pump-confirm-modal__operator {
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(51, 77, 129, 0.1);
+  color: #334d81;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .pump-confirm-modal__actions {

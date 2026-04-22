@@ -303,7 +303,12 @@ export default function App() {
   };
 
   const openPumpConfirm = (pumpName, mode) => {
-    setPumpConfirm({ pumpName, mode });
+    if (authUser?.role !== "admin") return;
+    setPumpConfirm({
+      pumpName,
+      mode,
+      username: authUser.username,
+    });
   };
 
   const closePumpConfirm = () => {
@@ -314,7 +319,7 @@ export default function App() {
     if (!pumpConfirm) return;
 
     console.log(
-      `Asignacion confirmada: ${pumpConfirm.pumpName} ${pumpConfirm.mode}`
+      `Asignacion confirmada: ${pumpConfirm.pumpName} ${pumpConfirm.mode} por ${pumpConfirm.username}`
     );
     closePumpConfirm();
   };
@@ -837,6 +842,7 @@ export default function App() {
                 onRequestMode={(pumpName, mode) =>
                   openPumpConfirm(pumpName, mode)
                 }
+                canRequestMode={isAdmin}
               />
 
               <FalconeCard
@@ -1178,6 +1184,7 @@ export default function App() {
         <PumpConfirmModal
           pumpName={pumpConfirm.pumpName}
           mode={pumpConfirm.mode}
+          username={pumpConfirm.username}
           onCancel={closePumpConfirm}
           onConfirm={confirmPumpAssignment}
         />
@@ -1360,6 +1367,7 @@ function CaboViejoCard({
   onOpenConfig,
   onOpenGraph,
   onRequestMode,
+  canRequestMode = false,
 }) {
   return (
     <article className="dashboard-card">
@@ -1372,10 +1380,29 @@ function CaboViejoCard({
           runtime={p70a}
           modes={bombasCaboviejo.p70a}
           onRequestMode={onRequestMode}
+          canRequestMode={canRequestMode}
         />
-        <PumpBox name="P70B" runtime={p70b} modes={bombasCaboviejo.p70b} />
-        <PumpBox name="P71A" runtime={p71a} modes={bombasCaboviejo.p71a} />
-        <PumpBox name="P71B" runtime={p71b} modes={bombasCaboviejo.p71b} />
+        <PumpBox
+          name="P70B"
+          runtime={p70b}
+          modes={bombasCaboviejo.p70b}
+          onRequestMode={onRequestMode}
+          canRequestMode={canRequestMode}
+        />
+        <PumpBox
+          name="P71A"
+          runtime={p71a}
+          modes={bombasCaboviejo.p71a}
+          onRequestMode={onRequestMode}
+          canRequestMode={canRequestMode}
+        />
+        <PumpBox
+          name="P71B"
+          runtime={p71b}
+          modes={bombasCaboviejo.p71b}
+          onRequestMode={onRequestMode}
+          canRequestMode={canRequestMode}
+        />
       </div>
 
       <div className="footer-pills">
@@ -1474,26 +1501,36 @@ function CardHeader({ title, onOpenConfig }) {
   );
 }
 
-function PumpBox({ name, runtime, modes = {}, alert = false, onRequestMode }) {
+function PumpBox({
+  name,
+  runtime,
+  modes = {},
+  alert = false,
+  onRequestMode,
+  canRequestMode = false,
+}) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
   const autoActivo = Number(modes.auto) === 1;
   const runningActivo = Number(modes.running) === 1;
-  const canRequestMode = typeof onRequestMode === "function";
+  const canSendRequest = canRequestMode && typeof onRequestMode === "function";
 
   const stateText = runningActivo ? "ENCENDIDO" : "APAGADO";
   const requestMode = (mode) => {
-    if (!canRequestMode) return;
+    if (!canSendRequest) return;
     onRequestMode(name, mode);
   };
   const buttonProps = (mode) =>
-    canRequestMode
+    canSendRequest
       ? {
           type: "button",
           onClick: () => requestMode(mode),
+          title: `Solicitar modo ${mode} para ${name}`,
         }
       : {
           type: "button",
+          disabled: true,
+          title: "Solo un usuario admin puede modificar esta bomba",
         };
 
   return (
@@ -1893,7 +1930,7 @@ function TankGraphModal({ tankKey, levelConfig, onClose }) {
   );
 }
 
-function PumpConfirmModal({ pumpName, mode, onCancel, onConfirm }) {
+function PumpConfirmModal({ pumpName, mode, username, onCancel, onConfirm }) {
   const modeLabel = {
     HAND: "Manual",
     OFF: "Apagado",
@@ -1920,6 +1957,9 @@ function PumpConfirmModal({ pumpName, mode, onCancel, onConfirm }) {
           <strong>
             {pumpName} {"->"} {modeLabel}
           </strong>
+          <span className="pump-confirm-modal__operator">
+            Operador: {username}
+          </span>
 
           <div className="pump-confirm-modal__actions">
             <button
