@@ -83,6 +83,31 @@ function formatLocalEventDate(value) {
   }).format(date);
 }
 
+function formatDateInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatTimeInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}
+
+function buildLocalDateTime(dateValue, timeValue, fallbackTime) {
+  if (!dateValue) return "";
+
+  return `${dateValue} ${timeValue || fallbackTime}:00`;
+}
+
 function formatChartAxisTime(value) {
   const date = parseSqlUtcDate(value);
 
@@ -222,6 +247,17 @@ export default function App() {
   const [historicoEventos, setHistoricoEventos] = useState([]);
   const [historicoLoading, setHistoricoLoading] = useState(false);
   const [historicoZona, setHistoricoZona] = useState("todos");
+  const [historicoFiltro, setHistoricoFiltro] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    return {
+      startDate: formatDateInput(start),
+      startTime: "00:00",
+      endDate: formatDateInput(now),
+      endTime: formatTimeInput(now),
+    };
+  });
   const [userMessage, setUserMessage] = useState("");
   const [userForm, setUserForm] = useState({
     username: "",
@@ -399,6 +435,20 @@ export default function App() {
         params.set("zona", historicoZona);
       }
 
+      const start = buildLocalDateTime(
+        historicoFiltro.startDate,
+        historicoFiltro.startTime,
+        "00:00"
+      );
+      const end = buildLocalDateTime(
+        historicoFiltro.endDate,
+        historicoFiltro.endTime,
+        "23:59"
+      );
+
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+
       const query = params.toString();
 
       apiFetch(`/api/eventos${query ? `?${query}` : ""}`)
@@ -417,7 +467,7 @@ export default function App() {
     cargarEventos();
     const interval = setInterval(cargarEventos, 5000);
     return () => clearInterval(interval);
-  }, [authUser, activeView, historicoZona]);
+  }, [authUser, activeView, historicoZona, historicoFiltro]);
 
   const nivelesEscalados = {
     planta: escalarNivel(
@@ -495,13 +545,6 @@ export default function App() {
     },
     { title: "", level: null, plc: null, empty: true },
   ];
-
-  const eventosPlanta = historicoEventos.filter(
-    (evento) => evento.zona === "PLANTA"
-  );
-  const eventosCaboViejo = historicoEventos.filter(
-    (evento) => evento.zona === "CABO VIEJO"
-  );
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -797,31 +840,6 @@ export default function App() {
         {activeView === "historico" && (
           <section className="content">
             <div className="historico-page">
-              <div className="historico-header-card">
-                <div>
-                  <h2>Histórico de alarmas</h2>
-                  <p>
-                    Vista general del registro de alarmas, fallas y eventos del
-                    sistema.
-                  </p>
-                </div>
-
-                <div className="historico-stats">
-                  <div className="historico-stat">
-                    <span>Total</span>
-                    <strong>{historicoEventos.length}</strong>
-                  </div>
-                  <div className="historico-stat">
-                    <span>Planta</span>
-                    <strong>{eventosPlanta.length}</strong>
-                  </div>
-                  <div className="historico-stat">
-                    <span>Cabo Viejo</span>
-                    <strong>{eventosCaboViejo.length}</strong>
-                  </div>
-                </div>
-              </div>
-
               <div className="historico-log-card">
                 <div className="historico-filter-bar">
                   <div>
@@ -832,17 +850,75 @@ export default function App() {
                     </p>
                   </div>
 
-                  <label className="historico-filter">
-                    <span>Zona</span>
-                    <select
-                      value={historicoZona}
-                      onChange={(e) => setHistoricoZona(e.target.value)}
-                    >
-                      <option value="todos">Todos</option>
-                      <option value="PLANTA">Planta</option>
-                      <option value="CABO VIEJO">Cabo Viejo</option>
-                    </select>
-                  </label>
+                  <div className="historico-filters">
+                    <label className="historico-filter">
+                      <span>Fecha inicio</span>
+                      <input
+                        type="date"
+                        value={historicoFiltro.startDate}
+                        onChange={(e) =>
+                          setHistoricoFiltro((prev) => ({
+                            ...prev,
+                            startDate: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="historico-filter historico-filter--time">
+                      <span>Hora inicio</span>
+                      <input
+                        type="time"
+                        value={historicoFiltro.startTime}
+                        onChange={(e) =>
+                          setHistoricoFiltro((prev) => ({
+                            ...prev,
+                            startTime: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="historico-filter">
+                      <span>Fecha fin</span>
+                      <input
+                        type="date"
+                        value={historicoFiltro.endDate}
+                        onChange={(e) =>
+                          setHistoricoFiltro((prev) => ({
+                            ...prev,
+                            endDate: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="historico-filter historico-filter--time">
+                      <span>Hora fin</span>
+                      <input
+                        type="time"
+                        value={historicoFiltro.endTime}
+                        onChange={(e) =>
+                          setHistoricoFiltro((prev) => ({
+                            ...prev,
+                            endTime: e.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+
+                    <label className="historico-filter">
+                      <span>Zona</span>
+                      <select
+                        value={historicoZona}
+                        onChange={(e) => setHistoricoZona(e.target.value)}
+                      >
+                        <option value="todos">Todos</option>
+                        <option value="PLANTA">Planta</option>
+                        <option value="CABO VIEJO">Cabo Viejo</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
                 <div className="historico-log-table">

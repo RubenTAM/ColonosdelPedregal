@@ -1273,7 +1273,7 @@ button {
 }
 
 .historico-filter {
-  min-width: 190px;
+  min-width: 160px;
 }
 
 .historico-filter span {
@@ -1284,7 +1284,20 @@ button {
   font-weight: 800;
 }
 
-.historico-filter select {
+.historico-filters {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.historico-filter--time {
+  min-width: 132px;
+}
+
+.historico-filter select,
+.historico-filter input {
   width: 100%;
   height: 44px;
   border: 1px solid #d7e0ec;
@@ -1554,6 +1567,19 @@ button {
 
   .historico-log-row {
     padding: 16px;
+  }
+
+  .historico-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .historico-filters {
+    justify-content: stretch;
+  }
+
+  .historico-filter {
+    flex: 1 1 160px;
   }
 
   .query-form__grid {

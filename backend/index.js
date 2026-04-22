@@ -637,13 +637,27 @@ app.get("/api/niveles", (req, res) => {
 
 app.get("/api/eventos", verifyToken, (req, res) => {
   const zona = String(req.query.zona || "todos").trim().toUpperCase();
+  const start = String(req.query.start || "").trim();
+  const end = String(req.query.end || "").trim();
   const params = [];
-  let where = "";
+  const whereParts = [];
 
   if (zona && zona !== "TODOS") {
-    where = "WHERE zona = ?";
+    whereParts.push("zona = ?");
     params.push(zona);
   }
+
+  if (start) {
+    whereParts.push("fecha >= ?");
+    params.push(start);
+  }
+
+  if (end) {
+    whereParts.push("fecha <= ?");
+    params.push(end);
+  }
+
+  const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
 
   db.all(
     `
