@@ -156,28 +156,29 @@ const caboViejoBombasEventos = {
 
 const caboViejoModoComandos = {
   p70a: {
-    man: "Caboviejo_cv_p70a_man",
-    off: "Caboviejo_cv_p70a_off",
-    auto: "Caboviejo_cv_p70a_auto",
+    man: "cv_p70a_man",
+    off: "cv_p70a_off",
+    auto: "cv_p70a_auto",
   },
   p70b: {
-    man: "Caboviejo_cv_p70b_man",
-    off: "Caboviejo_cv_p70b_off",
-    auto: "Caboviejo_cv_p70b_auto",
+    man: "cv_p70b_man",
+    off: "cv_p70b_off",
+    auto: "cv_p70b_auto",
   },
   p71a: {
-    man: "Caboviejo_cv_p71a_man",
-    off: "Caboviejo_cv_p71a_off",
-    auto: "Caboviejo_cv_p71a_auto",
+    man: "cv_p71a_man",
+    off: "cv_p71a_off",
+    auto: "cv_p71a_auto",
   },
   p71b: {
-    man: "Caboviejo_cv_p71b_man",
-    off: "Caboviejo_cv_p71b_off",
-    auto: "Caboviejo_cv_p71b_auto",
+    man: "cv_p71b_man",
+    off: "cv_p71b_off",
+    auto: "cv_p71b_auto",
   },
 };
 
 const caboViejoModoPendiente = {};
+const caboViejoModoTimers = {};
 
 // TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {
@@ -250,6 +251,45 @@ function guardarEventoSistema({ zona, equipo, tipo, estado, mensaje }) {
       }
     }
   );
+}
+
+function limpiarComandoBombaCaboviejo(bomba) {
+  const timer = caboViejoModoTimers[bomba];
+  if (!timer) return;
+
+  clearInterval(timer.intervalId);
+  clearTimeout(timer.timeoutId);
+
+  if (timer.topic && client.connected) {
+    client.publish(timer.topic, "0");
+  }
+
+  delete caboViejoModoTimers[bomba];
+}
+
+function sostenerComandoBombaCaboviejo(bomba, topic) {
+  limpiarComandoBombaCaboviejo(bomba);
+
+  const intervalId = setInterval(() => {
+    if (!client.connected) return;
+    client.publish(topic, "1");
+  }, 700);
+
+  const timeoutId = setTimeout(() => {
+    clearInterval(intervalId);
+
+    if (client.connected) {
+      client.publish(topic, "0");
+    }
+
+    delete caboViejoModoTimers[bomba];
+  }, 10000);
+
+  caboViejoModoTimers[bomba] = {
+    topic,
+    intervalId,
+    timeoutId,
+  };
 }
 
 const topicsNivel = Object.keys(topicToKeyNivel);
@@ -708,8 +748,10 @@ app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, onlyAdmin, (req, res
 
     caboViejoModoPendiente[pendienteKey] = {
       username: req.user.username,
-      expiresAt: Date.now() + 15000,
+      expiresAt: Date.now() + 12000,
     };
+
+    sostenerComandoBombaCaboviejo(bomba, topic);
 
     res.json({
       ok: true,
