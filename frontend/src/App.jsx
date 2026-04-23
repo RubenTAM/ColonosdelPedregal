@@ -253,6 +253,7 @@ export default function App() {
     trenA: 0,
     trenB: 0,
     trenC: 0,
+    bypassPlanta: 0,
   });
 
   const [users, setUsers] = useState([]);
@@ -284,6 +285,7 @@ export default function App() {
   const [selectedTank, setSelectedTank] = useState(null);
   const [graphModalTank, setGraphModalTank] = useState(null);
   const [pumpConfirm, setPumpConfirm] = useState(null);
+  const [plantaBypassRequest, setPlantaBypassRequest] = useState(null);
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -305,6 +307,7 @@ export default function App() {
     setConfigModalOpen(false);
     setSelectedTank(null);
     setConfigForm({ min: "", max: "" });
+    setPlantaBypassRequest(null);
   };
 
   const openGraphModal = (tankKey) => {
@@ -335,6 +338,48 @@ export default function App() {
 
   const closePumpConfirm = () => {
     setPumpConfirm(null);
+  };
+
+  const togglePlantaBypass = () => {
+    if (authUser?.role !== "admin") return;
+
+    setPlantaBypassRequest({
+      username: authUser.username,
+      status: "sending",
+      error: "",
+      targetState: Number(plantaBotones?.bypassPlanta) === 1 ? 0 : 1,
+    });
+
+    apiFetch("/api/planta/bypass-toggle", {
+      method: "POST",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo enviar");
+        return data;
+      })
+      .then((data) => {
+        setPlantaBypassRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "checking",
+                targetState: Number(data.targetState),
+              }
+            : prev
+        );
+      })
+      .catch((err) => {
+        setPlantaBypassRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "error",
+                error: err.message,
+              }
+            : prev
+        );
+      });
   };
 
   const confirmPumpAssignment = () => {
@@ -433,6 +478,33 @@ export default function App() {
   }, [pumpConfirm]);
 
   useEffect(() => {
+    if (!plantaBypassRequest || plantaBypassRequest.status !== "checking") return;
+
+    if (Number(plantaBotones?.bypassPlanta) !== Number(plantaBypassRequest.targetState)) {
+      return;
+    }
+
+    setPlantaBypassRequest((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "success",
+          }
+        : prev
+    );
+  }, [plantaBypassRequest, plantaBotones]);
+
+  useEffect(() => {
+    if (!plantaBypassRequest || plantaBypassRequest.status !== "success") return;
+
+    const closeTimer = setTimeout(() => {
+      setPlantaBypassRequest(null);
+    }, 1800);
+
+    return () => clearTimeout(closeTimer);
+  }, [plantaBypassRequest]);
+
+  useEffect(() => {
     if (!pumpConfirm || pumpConfirm.status !== "checking") return;
 
     const timeout = setTimeout(() => {
@@ -448,6 +520,23 @@ export default function App() {
 
     return () => clearTimeout(timeout);
   }, [pumpConfirm]);
+
+  useEffect(() => {
+    if (!plantaBypassRequest || plantaBypassRequest.status !== "checking") return;
+
+    const timeout = setTimeout(() => {
+      setPlantaBypassRequest((prev) =>
+        prev && prev.status === "checking"
+          ? {
+              ...prev,
+              status: "incomplete",
+            }
+          : prev
+      );
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [plantaBypassRequest]);
 
   useEffect(() => {
     const onResize = () => {
@@ -918,11 +1007,11 @@ export default function App() {
         {activeView === "dashboard" && (
           <section className="content">
             <div className="cards-grid">
-              <PlantaCard
-                level={nivelesEscalados.planta}
-                plc={plcStatus.planta}
-                plantaBotones={plantaBotones}
-                onOpenConfig={() => openConfigModal("planta")}
+                <PlantaCard
+                  level={nivelesEscalados.planta}
+                  plc={plcStatus.planta}
+                  plantaBotones={plantaBotones}
+                  onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
               />
 
@@ -1259,15 +1348,19 @@ export default function App() {
         )}
       </main>
 
-      {configModalOpen && selectedTank && (
-        <LevelConfigModal
-          tankKey={selectedTank}
-          form={configForm}
-          setForm={setConfigForm}
-          onClose={closeConfigModal}
-          onSave={saveTankConfig}
-        />
-      )}
+        {configModalOpen && selectedTank && (
+          <LevelConfigModal
+            tankKey={selectedTank}
+            form={configForm}
+            setForm={setConfigForm}
+            onClose={closeConfigModal}
+            onSave={saveTankConfig}
+            isAdmin={authUser?.role === "admin"}
+            plantaBypassActive={Number(plantaBotones?.bypassPlanta) === 1}
+            plantaBypassRequest={plantaBypassRequest}
+            onTogglePlantaBypass={togglePlantaBypass}
+          />
+        )}
 
       {graphModalTank && (
         <TankGraphModal
@@ -1352,6 +1445,7 @@ function PlantaCard({
   onOpenGraph,
 }) {
   const [noDisponible, setNoDisponible] = useState(false);
+  const bypassPlantaActivo = Number(plantaBotones?.bypassPlanta) === 1;
 
   return (
     <article
@@ -1371,11 +1465,18 @@ function PlantaCard({
         <div className="card-disabled-banner">NO DISPONIBLE</div>
       )}
 
-      <CardHeader title="PLANTA" onOpenConfig={onOpenConfig} />
-      <TankGauge level={level} />
+        <CardHeader title="PLANTA" onOpenConfig={onOpenConfig} />
+        <TankGauge level={level} />
 
-      <div className="control-section-card">
-        <div className="control-section-card__title">Control de Trenes</div>
+        {bypassPlantaActivo && (
+          <div className="planta-bypass-banner">
+            <span className="planta-bypass-banner__icon">!</span>
+            <span>Bypass Planta</span>
+          </div>
+        )}
+
+        <div className="control-section-card">
+          <div className="control-section-card__title">Control de Trenes</div>
 
         <div className="button-grid button-grid--3">
           <button
@@ -2108,7 +2209,17 @@ function PumpConfirmModal({
   );
 }
 
-function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
+function LevelConfigModal({
+  tankKey,
+  form,
+  setForm,
+  onClose,
+  onSave,
+  isAdmin = false,
+  plantaBypassActive = false,
+  plantaBypassRequest = null,
+  onTogglePlantaBypass,
+}) {
   const niceName = {
     planta: "PLANTA",
     cabo_viejo: "CABO VIEJO",
@@ -2119,13 +2230,48 @@ function LevelConfigModal({ tankKey, form, setForm, onClose, onSave }) {
     pacifico: "PACIFICO",
     cuadrada: "CUADRADA",
   };
+  const bypassBusy =
+    plantaBypassRequest?.status === "sending" ||
+    plantaBypassRequest?.status === "checking";
+  const bypassStatusText = {
+    sending: "Enviando orden al PLC...",
+    checking: "Esperando confirmacion del PLC...",
+    success: "Asignacion correcta",
+    incomplete: "Asignacion incompleta",
+    error: plantaBypassRequest?.error || "No se pudo enviar la orden",
+  }[plantaBypassRequest?.status];
 
   const renderBypassButtons = () => {
     if (tankKey === "planta") {
       return (
-        <button className="level-modal__bypass">
-          BYPASS PLANTA
-        </button>
+        <div className="level-modal__bypass-wrap">
+          <button
+            type="button"
+            className={`level-modal__bypass ${
+              plantaBypassActive ? "level-modal__bypass--active" : "level-modal__bypass--inactive"
+            }`}
+            onClick={onTogglePlantaBypass}
+            disabled={bypassBusy || !isAdmin}
+            title={
+              isAdmin
+                ? plantaBypassActive
+                  ? "Desactivar bypass de planta"
+                  : "Activar bypass de planta"
+                : "Solo un usuario admin puede modificar el bypass"
+            }
+          >
+            BYPASS PLANTA
+          </button>
+
+          {bypassStatusText && (
+            <div
+              className={`pump-confirm-modal__status pump-confirm-modal__status--${plantaBypassRequest?.status}`}
+            >
+              {bypassBusy && <span className="pump-confirm-modal__spinner" />}
+              <span>{bypassStatusText}</span>
+            </div>
+          )}
+        </div>
       );
     }
 

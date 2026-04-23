@@ -68,6 +68,7 @@ let plantaBotones = {
   trenA: 0,
   trenB: 0,
   trenC: 0,
+  bypassPlanta: 0,
 };
 
 let guardandoHistorico = false;
@@ -188,6 +189,12 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_5: "trenA",
   Planta_Bool_6: "trenB",
   Planta_Bool_7: "trenC",
+  Planta_Bool_9: "bypassPlanta",
+};
+
+const plantaBypassTopics = {
+  set: "Planta_Bypass_S",
+  reset: "Planta_Bypass_R",
 };
 
 const plantaEquipoEventos = {
@@ -758,6 +765,29 @@ app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, onlyAdmin, (req, res
       bomba,
       modo,
       topic,
+      usuario: req.user.username,
+    });
+  });
+});
+
+app.post("/api/planta/bypass-toggle", verifyToken, onlyAdmin, (req, res) => {
+  if (!client.connected) {
+    return res.status(503).json({ error: "MQTT no conectado" });
+  }
+
+  const bypassActivo = Number(plantaBotones.bypassPlanta) === 1;
+  const targetState = bypassActivo ? 0 : 1;
+  const topic = bypassActivo ? plantaBypassTopics.reset : plantaBypassTopics.set;
+
+  client.publish(topic, "1", (err) => {
+    if (err) {
+      return res.status(500).json({ error: "No se pudo enviar al PLC" });
+    }
+
+    res.json({
+      ok: true,
+      topic,
+      targetState,
       usuario: req.user.username,
     });
   });

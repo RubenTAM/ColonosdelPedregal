@@ -1124,6 +1124,33 @@ button {
   overflow: visible;
 }
 
+.planta-bypass-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin: -2px auto 14px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(239, 193, 75, 0.2);
+  border: 1px solid rgba(223, 177, 60, 0.35);
+  color: #8a6100;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.planta-bypass-banner__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #efc14b;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .power-button {
   position: absolute;
   top: 18px;
@@ -2513,6 +2540,26 @@ button {
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
+}
+
+.level-modal__bypass-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.level-modal__bypass--inactive {
+  background: linear-gradient(180deg, #cfd7e4 0%, #c3ccd9 100%);
+  color: #41506a;
+}
+
+.level-modal__bypass--active {
+  background: linear-gradient(180deg, #48a45a 0%, #3a8d49 100%);
+}
+
+.level-modal__bypass:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
 }
 
 .mini-card__header--with-actions {
