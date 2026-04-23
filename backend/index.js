@@ -154,6 +154,31 @@ const caboViejoBombasEventos = {
   p71b: "P71B",
 };
 
+const caboViejoModoComandos = {
+  p70a: {
+    man: "Caboviejo_cv_p70a_man",
+    off: "Caboviejo_cv_p70a_off",
+    auto: "Caboviejo_cv_p70a_auto",
+  },
+  p70b: {
+    man: "Caboviejo_cv_p70b_man",
+    off: "Caboviejo_cv_p70b_off",
+    auto: "Caboviejo_cv_p70b_auto",
+  },
+  p71a: {
+    man: "Caboviejo_cv_p71a_man",
+    off: "Caboviejo_cv_p71a_off",
+    auto: "Caboviejo_cv_p71a_auto",
+  },
+  p71b: {
+    man: "Caboviejo_cv_p71b_man",
+    off: "Caboviejo_cv_p71b_off",
+    auto: "Caboviejo_cv_p71b_auto",
+  },
+};
+
+const caboViejoModoPendiente = {};
+
 // TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {
   Planta_Bool_2: "bombaA",
@@ -312,17 +337,28 @@ client.on("message", (topic, message) => {
     }
 
     if (
-      bomba === "p70a" &&
       caboViejoP70AModos[campo] &&
       valorNormalizado === 1 &&
+      typeof valorAnterior !== "undefined" &&
       Number(valorAnterior) !== 1
     ) {
+      const equipo = caboViejoBombasEventos[bomba];
       const modo = caboViejoP70AModos[campo];
-      const mensaje = `P70A puesta en modo ${modo}`;
+      const pendienteKey = `${bomba}.${campo}`;
+      const pendiente = caboViejoModoPendiente[pendienteKey];
+      const pendienteVigente =
+        pendiente && pendiente.expiresAt > Date.now() && pendiente.username;
+      const mensaje = pendienteVigente
+        ? `${equipo} puesta en modo ${modo} por "${pendiente.username}"`
+        : `${equipo} puesta en modo ${modo}`;
+
+      if (pendiente) {
+        delete caboViejoModoPendiente[pendienteKey];
+      }
 
       guardarEventoSistema({
         zona: "CABO VIEJO",
-        equipo: "P70A",
+        equipo,
         tipo: "bomba",
         estado: campo,
         mensaje,
@@ -647,6 +683,42 @@ app.post("/api/level-config/:tankKey", verifyToken, (req, res) => {
       });
     }
   );
+});
+
+app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, onlyAdmin, (req, res) => {
+  const bomba = String(req.params.bomba || "").trim().toLowerCase();
+  const modo = String(req.body.mode || "").trim().toLowerCase();
+  const topic = caboViejoModoComandos[bomba]?.[modo];
+  const equipo = caboViejoBombasEventos[bomba];
+
+  if (!topic || !equipo) {
+    return res.status(400).json({ error: "Bomba o modo no valido" });
+  }
+
+  if (!client.connected) {
+    return res.status(503).json({ error: "MQTT no conectado" });
+  }
+
+  const pendienteKey = `${bomba}.${modo}`;
+
+  client.publish(topic, "1", (err) => {
+    if (err) {
+      return res.status(500).json({ error: "No se pudo enviar al PLC" });
+    }
+
+    caboViejoModoPendiente[pendienteKey] = {
+      username: req.user.username,
+      expiresAt: Date.now() + 15000,
+    };
+
+    res.json({
+      ok: true,
+      bomba,
+      modo,
+      topic,
+      usuario: req.user.username,
+    });
+  });
 });
 
 /* ---------- RUTAS DE NIVELES LIBRES ---------- */

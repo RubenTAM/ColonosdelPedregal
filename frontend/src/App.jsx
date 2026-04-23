@@ -23,6 +23,19 @@ const TANK_OPTIONS = [
   { key: "cuadrada", label: "Cuadrada" },
 ];
 
+const CABO_VIEJO_PUMP_KEYS = {
+  P70A: "p70a",
+  P70B: "p70b",
+  P71A: "p71a",
+  P71B: "p71b",
+};
+
+const CABO_VIEJO_MODE_KEYS = {
+  HAND: "man",
+  OFF: "off",
+  AUTO: "auto",
+};
+
 function escalarNivel(valor, min, max) {
   const v = Number(valor);
   const minNum = Number(min);
@@ -304,10 +317,19 @@ export default function App() {
 
   const openPumpConfirm = (pumpName, mode) => {
     if (authUser?.role !== "admin") return;
+    const pumpKey = CABO_VIEJO_PUMP_KEYS[pumpName];
+    const modeKey = CABO_VIEJO_MODE_KEYS[mode];
+
+    if (!pumpKey || !modeKey) return;
+
     setPumpConfirm({
       pumpName,
+      pumpKey,
       mode,
+      modeKey,
       username: authUser.username,
+      status: "idle",
+      error: "",
     });
   };
 
@@ -318,10 +340,43 @@ export default function App() {
   const confirmPumpAssignment = () => {
     if (!pumpConfirm) return;
 
-    console.log(
-      `Asignacion confirmada: ${pumpConfirm.pumpName} ${pumpConfirm.mode} por ${pumpConfirm.username}`
-    );
-    closePumpConfirm();
+    setPumpConfirm((prev) => ({
+      ...prev,
+      status: "sending",
+      error: "",
+    }));
+
+    apiFetch(`/api/cabo-viejo/bombas/${pumpConfirm.pumpKey}/mode`, {
+      method: "POST",
+      body: JSON.stringify({ mode: pumpConfirm.modeKey }),
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo enviar");
+        return data;
+      })
+      .then(() => {
+        setPumpConfirm((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "checking",
+                startedAt: Date.now(),
+              }
+            : prev
+        );
+      })
+      .catch((err) => {
+        setPumpConfirm((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "error",
+                error: err.message,
+              }
+            : prev
+        );
+      });
   };
 
   const saveTankConfig = () => {
@@ -351,6 +406,48 @@ export default function App() {
       })
       .catch((err) => console.error("Error al guardar configuracion:", err));
   };
+
+  useEffect(() => {
+    if (!pumpConfirm || pumpConfirm.status !== "checking") return;
+
+    const modeValue =
+      bombasCaboviejo[pumpConfirm.pumpKey]?.[pumpConfirm.modeKey];
+
+    if (Number(modeValue) !== 1) return;
+
+    setPumpConfirm((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "success",
+          }
+        : prev
+    );
+  }, [pumpConfirm, bombasCaboviejo]);
+
+  useEffect(() => {
+    if (!pumpConfirm || pumpConfirm.status !== "success") return;
+
+    const closeTimer = setTimeout(closePumpConfirm, 1800);
+    return () => clearTimeout(closeTimer);
+  }, [pumpConfirm]);
+
+  useEffect(() => {
+    if (!pumpConfirm || pumpConfirm.status !== "checking") return;
+
+    const timeout = setTimeout(() => {
+      setPumpConfirm((prev) =>
+        prev && prev.status === "checking"
+          ? {
+              ...prev,
+              status: "incomplete",
+            }
+          : prev
+      );
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [pumpConfirm]);
 
   useEffect(() => {
     const onResize = () => {
@@ -1185,6 +1282,8 @@ export default function App() {
           pumpName={pumpConfirm.pumpName}
           mode={pumpConfirm.mode}
           username={pumpConfirm.username}
+          status={pumpConfirm.status}
+          error={pumpConfirm.error}
           onCancel={closePumpConfirm}
           onConfirm={confirmPumpAssignment}
         />
@@ -1930,16 +2029,32 @@ function TankGraphModal({ tankKey, levelConfig, onClose }) {
   );
 }
 
-function PumpConfirmModal({ pumpName, mode, username, onCancel, onConfirm }) {
+function PumpConfirmModal({
+  pumpName,
+  mode,
+  username,
+  status = "idle",
+  error = "",
+  onCancel,
+  onConfirm,
+}) {
   const modeLabel = {
     HAND: "Manual",
     OFF: "Apagado",
     AUTO: "Automatico",
   }[mode] || mode;
+  const isBusy = status === "sending" || status === "checking";
+  const statusText = {
+    sending: "Enviando orden al PLC...",
+    checking: "Esperando confirmacion del PLC...",
+    success: "Asignacion correcta",
+    incomplete: "Asignacion incompleta",
+    error: error || "No se pudo enviar la orden",
+  }[status];
 
   return (
     <>
-      <div className="modal-overlay" onClick={onCancel} />
+      <div className="modal-overlay" onClick={isBusy ? undefined : onCancel} />
       <div className="pump-confirm-modal">
         <div className="pump-confirm-modal__header">
           <h3>Confirmar asignacion</h3>
@@ -1947,6 +2062,7 @@ function PumpConfirmModal({ pumpName, mode, username, onCancel, onConfirm }) {
             type="button"
             className="pump-confirm-modal__close"
             onClick={onCancel}
+            disabled={isBusy}
           >
             X
           </button>
@@ -1961,11 +2077,19 @@ function PumpConfirmModal({ pumpName, mode, username, onCancel, onConfirm }) {
             Operador: {username}
           </span>
 
+          {statusText && (
+            <div className={`pump-confirm-modal__status pump-confirm-modal__status--${status}`}>
+              {isBusy && <span className="pump-confirm-modal__spinner" />}
+              <span>{statusText}</span>
+            </div>
+          )}
+
           <div className="pump-confirm-modal__actions">
             <button
               type="button"
               className="pump-confirm-modal__cancel"
               onClick={onCancel}
+              disabled={isBusy}
             >
               No
             </button>
@@ -1973,8 +2097,9 @@ function PumpConfirmModal({ pumpName, mode, username, onCancel, onConfirm }) {
               type="button"
               className="pump-confirm-modal__confirm"
               onClick={onConfirm}
+              disabled={isBusy || status === "success"}
             >
-              Si
+              {status === "incomplete" || status === "error" ? "Reintentar" : "Si"}
             </button>
           </div>
         </div>
