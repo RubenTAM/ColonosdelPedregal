@@ -932,6 +932,16 @@ export default function App() {
 
           <button
             className={`nav-item ${
+              activeView === "mantenimiento" ? "nav-item--active" : ""
+            }`}
+            onClick={() => setActiveView("mantenimiento")}
+          >
+            <span className="nav-item__icon">ðŸ› ï¸</span>
+            <span>Mantenimiento</span>
+          </button>
+
+          <button
+            className={`nav-item ${
               activeView === "consultas" ? "nav-item--active" : ""
             }`}
             onClick={() => setActiveView("consultas")}
@@ -970,10 +980,24 @@ export default function App() {
             )}
 
             <div className="topbar__titles">
+              {activeView === "dashboard" && (
+                <>
+                  <h1>Tanques</h1>
+                  <p>Vista general de niveles y estado del sistema</p>
+                </>
+              )}
+
               {activeView === "historico" && (
                 <>
                   <h1>Histórico de Alarmas</h1>
                   <p>Registro general de eventos y alarmas del sistema</p>
+                </>
+              )}
+
+              {activeView === "mantenimiento" && (
+                <>
+                  <h1>Mantenimiento</h1>
+                  <p>Vista tecnica y operativa de Cabo Viejo</p>
                 </>
               )}
 
@@ -1015,20 +1039,10 @@ export default function App() {
                 onOpenGraph={() => openGraphModal("planta")}
               />
 
-              <CaboViejoCard
+              <CaboViejoTankCard
                 level={nivelesEscalados.cabo_viejo}
                 plc={plcStatus.cabo_viejo}
-                p70a={niveles.runtime_p70a}
-                p70b={niveles.runtime_p70b}
-                p71a={niveles.runtime_p71a}
-                p71b={niveles.runtime_p71b}
-                bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
-                onOpenGraph={() => openGraphModal("cabo_viejo")}
-                onRequestMode={(pumpName, mode) =>
-                  openPumpConfirm(pumpName, mode)
-                }
-                canRequestMode={isAdmin}
               />
 
               <FalconeCard
@@ -1075,6 +1089,28 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </div>
+          </section>
+        )}
+
+        {activeView === "mantenimiento" && (
+          <section className="content">
+            <div className="maintenance-layout">
+              <CaboViejoCard
+                level={nivelesEscalados.cabo_viejo}
+                plc={plcStatus.cabo_viejo}
+                p70a={niveles.runtime_p70a}
+                p70b={niveles.runtime_p70b}
+                p71a={niveles.runtime_p71a}
+                p71b={niveles.runtime_p71b}
+                bombasCaboviejo={bombasCaboviejo}
+                onOpenConfig={() => openConfigModal("cabo_viejo")}
+                onOpenGraph={() => openGraphModal("cabo_viejo")}
+                onRequestMode={(pumpName, mode) =>
+                  openPumpConfirm(pumpName, mode)
+                }
+                canRequestMode={isAdmin}
+              />
             </div>
           </section>
         )}
@@ -1610,6 +1646,25 @@ function CaboViejoCard({
       </div>
 
       <GraphCardButton onClick={onOpenGraph} />
+    </article>
+  );
+}
+
+function CaboViejoTankCard({ level, plc, onOpenConfig }) {
+  return (
+    <article className="dashboard-card">
+      <CardHeader title="CABO VIEJO" onOpenConfig={onOpenConfig} />
+      <TankGauge level={level} />
+
+      <div className="cabo-viejo-tank-card__body">
+        <div className="cabo-viejo-tank-card__placeholder">
+          Configuracion temporal sin tags asignadas
+        </div>
+      </div>
+
+      <div className="footer-pills">
+        <div className="footer-pill">PLC: {plc}</div>
+      </div>
     </article>
   );
 }
