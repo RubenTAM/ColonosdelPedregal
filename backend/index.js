@@ -31,6 +31,7 @@ const DEFAULT_LEVEL_CONFIG = {
 let niveles = {
   planta: 0,
   cabo_viejo: 0,
+  cabo_viejo_tanques: 0,
   falcone: 0,
   cinco: 0,
   seis: 0,
@@ -79,6 +80,7 @@ const caboViejoEventoPrevio = {};
 const topicToKeyNivel = {
   Planta_Real_1: "planta",
   Caboviejo_Real_1: "cabo_viejo",
+  Planta_Real_5: "cabo_viejo_tanques",
   Falcone_Real_1: "falcone",
   Cinco_Real_1: "cinco",
   Seis_Real_1: "seis",

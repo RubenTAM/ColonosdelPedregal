@@ -216,6 +216,7 @@ export default function App() {
   const [niveles, setNiveles] = useState({
     planta: 0,
     cabo_viejo: 0,
+    cabo_viejo_tanques: 0,
     falcone: 0,
     cinco: 0,
     seis: 0,
@@ -718,6 +719,11 @@ export default function App() {
       levelConfig.cabo_viejo.min,
       levelConfig.cabo_viejo.max
     ),
+    cabo_viejo_tanques: escalarNivel(
+      niveles.cabo_viejo_tanques,
+      levelConfig.cabo_viejo.min,
+      levelConfig.cabo_viejo.max
+    ),
     falcone: escalarNivel(
       niveles.falcone,
       levelConfig.falcone.min,
@@ -931,7 +937,7 @@ export default function App() {
           </button>
 
           <button
-            className={`nav-item ${
+            className={`nav-item nav-item--maintenance ${
               activeView === "mantenimiento" ? "nav-item--active" : ""
             }`}
             onClick={() => setActiveView("mantenimiento")}
@@ -1040,7 +1046,7 @@ export default function App() {
               />
 
               <CaboViejoTankCard
-                level={nivelesEscalados.cabo_viejo}
+                level={nivelesEscalados.cabo_viejo_tanques}
                 plc={plcStatus.cabo_viejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
               />
