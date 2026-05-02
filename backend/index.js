@@ -104,7 +104,6 @@ const HISTORICAL_TANK_COLUMNS = {
 /* TOPICS MQTT - PLC STATUS / BIT DE VIDA */
 const topicToKeyPlc = {
   Planta_Real_2: "planta",
-  Caboviejo_Real_6: "cabo_viejo",
   Falcone_Real_2: "falcone",
   Cinco_Real_2: "cinco",
   Seis_Real_2: "seis",
@@ -115,33 +114,33 @@ const topicToKeyPlc = {
 
 /* TOPICS MQTT - RUNTIME CABO VIEJO */
 const topicToKeyRuntime = {
-  Caboviejo_Real_2: "runtime_p70a",
-  Caboviejo_Real_3: "runtime_p70b",
-  Caboviejo_Real_4: "runtime_p71a",
-  Caboviejo_Real_5: "runtime_p71b",
+  Planta_Real_6: "runtime_p70a",
+  Planta_Real_7: "runtime_p70b",
+  Planta_Real_8: "runtime_p71a",
+  Planta_Real_9: "runtime_p71b",
 };
 
 /* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
 const topicToKeyBombasCaboviejo = {
-  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
-  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
-  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
-  Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
+  Planta_Bool_15: { bomba: "p70a", campo: "man" },
+  Planta_Bool_16: { bomba: "p70a", campo: "off" },
+  Planta_Bool_14: { bomba: "p70a", campo: "auto" },
+  Planta_Bool_26: { bomba: "p70a", campo: "running" },
 
-  Caboviejo_Bool_5: { bomba: "p70b", campo: "man" },
-  Caboviejo_Bool_6: { bomba: "p70b", campo: "off" },
-  Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
-  Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
+  Planta_Bool_18: { bomba: "p70b", campo: "man" },
+  Planta_Bool_19: { bomba: "p70b", campo: "off" },
+  Planta_Bool_17: { bomba: "p70b", campo: "auto" },
+  Planta_Bool_27: { bomba: "p70b", campo: "running" },
 
-  Caboviejo_Bool_8: { bomba: "p71a", campo: "man" },
-  Caboviejo_Bool_9: { bomba: "p71a", campo: "off" },
-  Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
-  Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
+  Planta_Bool_21: { bomba: "p71a", campo: "man" },
+  Planta_Bool_22: { bomba: "p71a", campo: "off" },
+  Planta_Bool_20: { bomba: "p71a", campo: "auto" },
+  Planta_Bool_28: { bomba: "p71a", campo: "running" },
 
-  Caboviejo_Bool_11: { bomba: "p71b", campo: "man" },
-  Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
-  Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
-  Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
+  Planta_Bool_24: { bomba: "p71b", campo: "man" },
+  Planta_Bool_25: { bomba: "p71b", campo: "off" },
+  Planta_Bool_23: { bomba: "p71b", campo: "auto" },
+  Planta_Bool_29: { bomba: "p71b", campo: "running" },
 };
 
 const caboViejoP70AModos = {
@@ -433,8 +432,12 @@ client.on("message", (topic, message) => {
   if (topicToKeyPlc[topic]) {
     const key = topicToKeyPlc[topic];
     const numero = Number(texto);
+    const valorPlc = Number.isNaN(numero) ? texto : numero;
 
-    plcStatus[key] = Number.isNaN(numero) ? texto : numero;
+    plcStatus[key] = valorPlc;
+    if (topic === "Planta_Real_2") {
+      plcStatus.cabo_viejo = valorPlc;
+    }
     console.log(`PLC status ${key}:`, plcStatus[key]);
     return;
   }

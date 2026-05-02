@@ -1103,7 +1103,7 @@ export default function App() {
           <section className="content">
             <div className="maintenance-layout">
               <CaboViejoCard
-                level={nivelesEscalados.cabo_viejo}
+                level={nivelesEscalados.cabo_viejo_tanques}
                 plc={plcStatus.cabo_viejo}
                 p70a={niveles.runtime_p70a}
                 p70b={niveles.runtime_p70b}
