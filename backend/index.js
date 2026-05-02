@@ -158,9 +158,9 @@ const caboViejoBombasEventos = {
 
 const caboViejoModoComandos = {
   p70a: {
-    man: "cv_p70a_man",
-    off: "cv_p70a_off",
-    auto: "cv_p70a_auto",
+    man: "CVW_P70A_Man",
+    off: "CVW_P70A_Off",
+    auto: "CVW_P70A_Auto",
   },
   p70b: {
     man: "cv_p70b_man",
