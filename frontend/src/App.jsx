@@ -1045,10 +1045,20 @@ export default function App() {
                 onOpenGraph={() => openGraphModal("planta")}
               />
 
-              <CaboViejoTankCard
+              <CaboViejoCard
                 level={nivelesEscalados.cabo_viejo_tanques}
                 plc={plcStatus.cabo_viejo}
+                p70a={niveles.runtime_p70a}
+                p70b={niveles.runtime_p70b}
+                p71a={niveles.runtime_p71a}
+                p71b={niveles.runtime_p71b}
+                bombasCaboviejo={bombasCaboviejo}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
+                onOpenGraph={() => openGraphModal("cabo_viejo")}
+                onRequestMode={(pumpName, mode) =>
+                  openPumpConfirm(pumpName, mode)
+                }
+                canRequestMode={isAdmin}
               />
 
               <FalconeCard
