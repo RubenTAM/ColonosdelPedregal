@@ -471,14 +471,14 @@ function guardarHistorico() {
       cuadrada
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
-      niveles.planta,
-      niveles.cabo_viejo,
-      niveles.falcone,
-      niveles.cinco,
-      niveles.seis,
-      niveles.marilu,
+      `,
+      [
+        niveles.planta,
+        niveles.cabo_viejo_tanques,
+        niveles.falcone,
+        niveles.cinco,
+        niveles.seis,
+        niveles.marilu,
       niveles.pacifico,
       niveles.cuadrada,
     ],
