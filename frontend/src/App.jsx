@@ -74,7 +74,7 @@ function formatChartDateTime(value) {
 
 function parseSqlUtcDate(value) {
   if (!value) return new Date(NaN);
-  return new Date(String(value).replace(" ", "T"));
+  return new Date(`${String(value).replace(" ", "T")}Z`);
 }
 
 function formatLocalEventDate(value) {
@@ -183,12 +183,12 @@ function formatSqlUtcDate(date) {
     return "";
   }
 
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const seconds = String(date.getSeconds()).padStart(2, "0");
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hours = String(date.getUTCHours()).padStart(2, "0");
+  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+  const seconds = String(date.getUTCSeconds()).padStart(2, "0");
 
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
@@ -1119,21 +1119,13 @@ export default function App() {
         {activeView === "mantenimiento" && (
           <section className="content">
             <div className="maintenance-layout">
-              <CaboViejoCard
-                level={nivelesEscalados.cabo_viejo_tanques}
-                plc={plcStatus.cabo_viejo}
-                p70a={niveles.runtime_p70a}
-                p70b={niveles.runtime_p70b}
-                p71a={niveles.runtime_p71a}
-                p71b={niveles.runtime_p71b}
-                bombasCaboviejo={bombasCaboviejo}
-                onOpenConfig={() => openConfigModal("cabo_viejo")}
-                onOpenGraph={() => openGraphModal("cabo_viejo")}
-                onRequestMode={(pumpName, mode) =>
-                  openPumpConfirm(pumpName, mode)
-                }
-                canRequestMode={isAdmin}
-              />
+              <div className="maintenance-empty-card">
+                <h3>Sin elementos por ahora</h3>
+                <p>
+                  Esta seccion queda libre temporalmente mientras seguimos
+                  reorganizando mantenimiento.
+                </p>
+              </div>
             </div>
           </section>
         )}

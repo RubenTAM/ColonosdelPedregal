@@ -913,7 +913,7 @@ app.get("/api/historico/:tankKey", (req, res) => {
             fecha
           FROM ${HISTORICAL_TABLE}
           WHERE fecha > ? AND fecha <= ?
-          ORDER BY fecha ASC
+          ORDER BY fecha DESC
           LIMIT 72
         `
         : `
@@ -933,7 +933,7 @@ app.get("/api/historico/:tankKey", (req, res) => {
           return res.status(500).json({ error: err.message });
         }
 
-        const orderedRows = hasRange ? rows : [...rows].reverse();
+        const orderedRows = [...rows].reverse();
 
         res.json({
           rows: orderedRows,
