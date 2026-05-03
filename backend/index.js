@@ -163,9 +163,9 @@ const caboViejoModoComandos = {
     auto: "R_Bool_12",
   },
   p70b: {
-    man: "cv_p70b_man",
-    off: "cv_p70b_off",
-    auto: "cv_p70b_auto",
+    man: "R_Bool_16",
+    off: "R_Bool_17",
+    auto: "R_Bool_15",
   },
   p71a: {
     man: "cv_p71a_man",
