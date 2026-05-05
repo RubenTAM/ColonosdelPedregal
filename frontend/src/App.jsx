@@ -50,8 +50,6 @@ function escalarNivel(valor, min, max) {
 
 function formatLevel(level) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
-  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
-  const communicationOffline = !heartbeatMeta.isOnline;
   return `${Math.round(safeLevel)}%`;
 }
 
