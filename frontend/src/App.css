@@ -411,6 +411,22 @@ button {
   box-shadow: 0 0 0 6px rgba(78, 164, 90, 0.12);
 }
 
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-dot--online {
+  background: var(--green);
+  box-shadow: 0 0 0 6px rgba(78, 164, 90, 0.12);
+}
+
+.status-dot--offline {
+  background: #de5b5b;
+  box-shadow: 0 0 0 6px rgba(222, 91, 91, 0.16);
+}
+
 .more-btn {
   position: absolute;
   top: -2px;
@@ -422,6 +438,11 @@ button {
   background: rgba(240, 243, 247, 0.95);
   color: #5e6c81;
   cursor: pointer;
+}
+
+.more-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
 }
 
 /* GAUGE */
@@ -1943,6 +1964,15 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
+.graph-card-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow:
+    0 10px 18px rgba(81, 101, 133, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92);
+}
+
 .graph-card-btn--compact {
   width: 42px;
   height: 42px;
@@ -2635,6 +2665,12 @@ button {
   justify-content: space-between;
 }
 
+.mini-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .mini-card__menu {
   width: 28px;
   height: 28px;
@@ -2643,4 +2679,15 @@ button {
   background: rgba(240, 243, 247, 0.95);
   color: #5e6c81;
   cursor: pointer;
+}
+
+.mini-card__menu:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.dashboard-card--offline,
+.mini-card--offline {
+  filter: grayscale(1);
+  opacity: 0.78;
 }

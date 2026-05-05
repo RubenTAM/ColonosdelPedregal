@@ -50,7 +50,50 @@ function escalarNivel(valor, min, max) {
 
 function formatLevel(level) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
+  const communicationOffline = !heartbeatMeta.isOnline;
   return `${Math.round(safeLevel)}%`;
+}
+
+function formatHeartbeatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  }
+
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function resolveHeartbeatMeta(heartbeat, nowMs = Date.now()) {
+  if (!heartbeat) {
+    return {
+      isOnline: true,
+      elapsedMs: 0,
+      remainingMs: 0,
+      timeoutMs: 0,
+      label: "Sin datos de comunicacion",
+    };
+  }
+
+  const timeoutMs = Math.max(0, Number(heartbeat.timeoutMs) || 0);
+  const lastChangedAt = Number(heartbeat.lastChangedAt) || nowMs;
+  const elapsedMs = Math.max(0, nowMs - lastChangedAt);
+  const remainingMs = Math.max(0, timeoutMs - elapsedMs);
+  const isOnline = timeoutMs === 0 ? true : elapsedMs < timeoutMs;
+
+  return {
+    isOnline,
+    elapsedMs,
+    remainingMs,
+    timeoutMs,
+    label: isOnline
+      ? `Tiempo restante: ${formatHeartbeatDuration(remainingMs)}`
+      : `Sin cambio desde hace ${formatHeartbeatDuration(elapsedMs)}`,
+  };
 }
 
 function formatChartDateTime(value) {
@@ -246,6 +289,8 @@ export default function App() {
     pacifico: 0,
     cuadrada: 0,
   });
+  const [heartbeatStatus, setHeartbeatStatus] = useState({});
+  const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
     p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -560,6 +605,14 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const interval = setInterval(() => {
+      setHeartbeatNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     if (activeView === "consultas") {
       setActiveView("dashboard");
     }
@@ -597,6 +650,7 @@ export default function App() {
         .then((data) => {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
+          setHeartbeatStatus(data.heartbeatStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
         })
@@ -769,30 +823,35 @@ export default function App() {
       tankKey: "cinco",
       level: nivelesEscalados.cinco,
       plc: plcStatus.cinco,
+      heartbeat: heartbeatStatus.cinco,
     },
     {
       title: "Seis",
       tankKey: "seis",
       level: nivelesEscalados.seis,
       plc: plcStatus.seis,
+      heartbeat: heartbeatStatus.seis,
     },
     {
       title: "Marilu",
       tankKey: "marilu",
       level: nivelesEscalados.marilu,
       plc: plcStatus.marilu,
+      heartbeat: heartbeatStatus.marilu,
     },
     {
       title: "Pacifico",
       tankKey: "pacifico",
       level: nivelesEscalados.pacifico,
       plc: plcStatus.pacifico,
+      heartbeat: heartbeatStatus.pacifico,
     },
     {
       title: "Cuadrada",
       tankKey: "cuadrada",
       level: nivelesEscalados.cuadrada,
       plc: plcStatus.cuadrada,
+      heartbeat: heartbeatStatus.cuadrada,
     },
     { title: "", level: null, plc: null, empty: true },
   ];
@@ -1044,17 +1103,21 @@ export default function App() {
         {activeView === "dashboard" && (
           <section className="content">
             <div className="cards-grid">
-                <PlantaCard
-                  level={nivelesEscalados.planta}
-                  plc={plcStatus.planta}
-                  plantaBotones={plantaBotones}
-                  onOpenConfig={() => openConfigModal("planta")}
+              <PlantaCard
+                level={nivelesEscalados.planta}
+                plc={plcStatus.planta}
+                heartbeat={heartbeatStatus.planta}
+                heartbeatNow={heartbeatNow}
+                plantaBotones={plantaBotones}
+                onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
               />
 
               <CaboViejoCard
                 level={nivelesEscalados.cabo_viejo_tanques}
                 plc={plcStatus.cabo_viejo}
+                heartbeat={heartbeatStatus.cabo_viejo}
+                heartbeatNow={heartbeatNow}
                 p70a={niveles.runtime_p70a}
                 p70b={niveles.runtime_p70b}
                 p71a={niveles.runtime_p71a}
@@ -1071,6 +1134,8 @@ export default function App() {
               <FalconeCard
                 level={nivelesEscalados.falcone}
                 plc={plcStatus.falcone}
+                heartbeat={heartbeatStatus.falcone}
+                heartbeatNow={heartbeatNow}
                 onOpenConfig={() => openConfigModal("falcone")}
                 onOpenGraph={() => openGraphModal("falcone")}
               />
@@ -1088,6 +1153,8 @@ export default function App() {
                         title={item.title}
                         level={item.level}
                         plc={item.plc}
+                        heartbeat={item.heartbeat}
+                        heartbeatNow={heartbeatNow}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
                         onOpenGraph={() => openGraphModal(item.tankKey)}
                       />
@@ -1491,33 +1558,48 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
 function PlantaCard({
   level,
   plc,
+  heartbeat,
+  heartbeatNow,
   plantaBotones,
   onOpenConfig,
   onOpenGraph,
 }) {
   const [noDisponible, setNoDisponible] = useState(false);
   const bypassPlantaActivo = Number(plantaBotones?.bypassPlanta) === 1;
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
+  const communicationOffline = !heartbeatMeta.isOnline;
+  const cardDisabled = noDisponible || communicationOffline;
 
   return (
     <article
       className={`dashboard-card dashboard-card--planta ${
-        noDisponible ? "dashboard-card--disabled" : ""
-      }`}
+        cardDisabled ? "dashboard-card--disabled" : ""
+      } ${communicationOffline ? "dashboard-card--offline" : ""}`}
+      title={communicationOffline ? heartbeatMeta.label : undefined}
     >
       <button
         className={`power-button ${noDisponible ? "power-button--off" : ""}`}
         onClick={() => setNoDisponible(!noDisponible)}
         type="button"
+        disabled={communicationOffline}
       >
         ⏻
       </button>
 
-      {noDisponible && (
-        <div className="card-disabled-banner">NO DISPONIBLE</div>
+      {(noDisponible || communicationOffline) && (
+        <div className="card-disabled-banner">
+          {communicationOffline ? "SIN COMUNICACION" : "NO DISPONIBLE"}
+        </div>
       )}
 
-        <CardHeader title="PLANTA" onOpenConfig={onOpenConfig} />
-        <TankGauge level={level} />
+      <CardHeader
+        title="PLANTA"
+        onOpenConfig={onOpenConfig}
+        heartbeat={heartbeat}
+        heartbeatNow={heartbeatNow}
+        disableActions={cardDisabled}
+      />
+      <TankGauge level={level} />
 
         {bypassPlantaActivo && (
           <div className="planta-bypass-banner">
@@ -1534,7 +1616,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.trenA) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             TREN A
           </button>
@@ -1543,7 +1625,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.trenB) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             TREN B
           </button>
@@ -1552,7 +1634,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.trenC) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             TREN C
           </button>
@@ -1567,7 +1649,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.bombaA) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             BOMBA A
           </button>
@@ -1576,7 +1658,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.bombaB) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             BOMBA B
           </button>
@@ -1585,7 +1667,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.bombaC) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={noDisponible}
+            disabled={cardDisabled}
           >
             BOMBA C
           </button>
@@ -1593,7 +1675,7 @@ function PlantaCard({
       </div>
 
       <div className="plant-reset-row">
-        <button className="plant-reset-card" disabled={noDisponible}>
+        <button className="plant-reset-card" disabled={cardDisabled}>
           ⟲ RESET CONTADORES
         </button>
       </div>
@@ -1602,7 +1684,7 @@ function PlantaCard({
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
-      <GraphCardButton onClick={onOpenGraph} />
+      <GraphCardButton onClick={onOpenGraph} disabled={cardDisabled} />
     </article>
   );
 }
@@ -1610,6 +1692,8 @@ function PlantaCard({
 function CaboViejoCard({
   level,
   plc,
+  heartbeat,
+  heartbeatNow,
   p70a,
   p70b,
   p71a,
@@ -1620,9 +1704,22 @@ function CaboViejoCard({
   onRequestMode,
   canRequestMode = false,
 }) {
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
+  const communicationOffline = !heartbeatMeta.isOnline;
+
   return (
-    <article className="dashboard-card">
-      <CardHeader title="CABO VIEJO" onOpenConfig={onOpenConfig} />
+    <article
+      className={`dashboard-card ${
+        communicationOffline ? "dashboard-card--offline" : ""
+      }`}
+    >
+      <CardHeader
+        title="CABO VIEJO"
+        onOpenConfig={onOpenConfig}
+        heartbeat={heartbeat}
+        heartbeatNow={heartbeatNow}
+        disableActions={communicationOffline}
+      />
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--cabo">
@@ -1631,28 +1728,28 @@ function CaboViejoCard({
           runtime={p70a}
           modes={bombasCaboviejo.p70a}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
         <PumpBox
           name="P70B"
           runtime={p70b}
           modes={bombasCaboviejo.p70b}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
         <PumpBox
           name="P71A"
           runtime={p71a}
           modes={bombasCaboviejo.p71a}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
         <PumpBox
           name="P71B"
           runtime={p71b}
           modes={bombasCaboviejo.p71b}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
       </div>
 
@@ -1660,7 +1757,7 @@ function CaboViejoCard({
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
-      <GraphCardButton onClick={onOpenGraph} />
+      <GraphCardButton onClick={onOpenGraph} disabled={communicationOffline} />
     </article>
   );
 }
@@ -1684,10 +1781,30 @@ function CaboViejoTankCard({ level, plc, onOpenConfig }) {
   );
 }
 
-function FalconeCard({ level, plc, onOpenConfig, onOpenGraph }) {
+function FalconeCard({
+  level,
+  plc,
+  heartbeat,
+  heartbeatNow,
+  onOpenConfig,
+  onOpenGraph,
+}) {
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
+  const communicationOffline = !heartbeatMeta.isOnline;
+
   return (
-    <article className="dashboard-card">
-      <CardHeader title="FALCONE" onOpenConfig={onOpenConfig} />
+    <article
+      className={`dashboard-card ${
+        communicationOffline ? "dashboard-card--offline" : ""
+      }`}
+    >
+      <CardHeader
+        title="FALCONE"
+        onOpenConfig={onOpenConfig}
+        heartbeat={heartbeat}
+        heartbeatNow={heartbeatNow}
+        disableActions={communicationOffline}
+      />
       <TankGauge level={level} />
 
       <div className="pump-grid pump-grid--2">
@@ -1699,19 +1816,38 @@ function FalconeCard({ level, plc, onOpenConfig, onOpenGraph }) {
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
-      <GraphCardButton onClick={onOpenGraph} />
+      <GraphCardButton onClick={onOpenGraph} disabled={communicationOffline} />
     </article>
   );
 }
 
-function MiniTankCard({ title, level, plc, onOpenConfig, onOpenGraph }) {
+function MiniTankCard({
+  title,
+  level,
+  plc,
+  heartbeat,
+  heartbeatNow,
+  onOpenConfig,
+  onOpenGraph,
+}) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
+  const communicationOffline = !heartbeatMeta.isOnline;
 
   return (
-    <article className="mini-card">
+    <article
+      className={`mini-card ${communicationOffline ? "mini-card--offline" : ""}`}
+    >
       <div className="mini-card__header mini-card__header--with-actions">
-        <h4>{title}</h4>
-        <button className="mini-card__menu" onClick={onOpenConfig}>
+        <div className="mini-card__title-row">
+          <h4>{title}</h4>
+          <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />
+        </div>
+        <button
+          className="mini-card__menu"
+          onClick={onOpenConfig}
+          disabled={communicationOffline}
+        >
           ⋮
         </button>
       </div>
@@ -1737,17 +1873,22 @@ function MiniTankCard({ title, level, plc, onOpenConfig, onOpenGraph }) {
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
-      <GraphCardButton onClick={onOpenGraph} compact />
+      <GraphCardButton
+        onClick={onOpenGraph}
+        compact
+        disabled={communicationOffline}
+      />
     </article>
   );
 }
 
-function GraphCardButton({ onClick, compact = false }) {
+function GraphCardButton({ onClick, compact = false, disabled = false }) {
   return (
     <button
       type="button"
       className={`graph-card-btn ${compact ? "graph-card-btn--compact" : ""}`}
       onClick={onClick}
+      disabled={disabled}
       aria-label="Ver grafica"
       title="Ver grafica"
     >
@@ -1756,18 +1897,41 @@ function GraphCardButton({ onClick, compact = false }) {
   );
 }
 
-function CardHeader({ title, onOpenConfig }) {
+function CardHeader({
+  title,
+  onOpenConfig,
+  heartbeat,
+  heartbeatNow,
+  disableActions = false,
+}) {
+  const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   return (
     <div className="card-head">
       <div className="card-head__center">
         <h2>{title}</h2>
-        <span className="status-dot" />
+        <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />
       </div>
 
-      <button className="more-btn" onClick={onOpenConfig}>
+      <button className="more-btn" onClick={onOpenConfig} disabled={disableActions}>
         ⋮
       </button>
     </div>
+  );
+}
+
+function HeartbeatIndicator({ heartbeatMeta }) {
+  return (
+    <span
+      className="status-indicator"
+      title={heartbeatMeta.label}
+      aria-label={heartbeatMeta.label}
+    >
+      <span
+        className={`status-dot ${
+          heartbeatMeta.isOnline ? "status-dot--online" : "status-dot--offline"
+        }`}
+      />
+    </span>
   );
 }
 

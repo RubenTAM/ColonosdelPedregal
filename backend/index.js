@@ -55,6 +55,16 @@ let plcStatus = {
   cuadrada: 0,
 };
 
+const HEARTBEAT_TIMEOUT_MS = 20 * 60 * 1000;
+
+let heartbeatState = Object.keys(plcStatus).reduce((acc, key) => {
+  acc[key] = {
+    lastValue: plcStatus[key],
+    lastChangedAt: Date.now(),
+  };
+  return acc;
+}, {});
+
 let bombasCaboviejo = {
   p70a: { man: 0, off: 0, auto: 1, running: 0 },
   p70b: { man: 0, off: 0, auto: 1, running: 0 },
@@ -242,6 +252,46 @@ function fechaLocalTijuana() {
     }, {});
 
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
+function registrarCambioHeartbeat(key, value) {
+  if (!heartbeatState[key]) {
+    heartbeatState[key] = {
+      lastValue: value,
+      lastChangedAt: Date.now(),
+    };
+    return;
+  }
+
+  if (Number(heartbeatState[key].lastValue) !== Number(value)) {
+    heartbeatState[key].lastValue = value;
+    heartbeatState[key].lastChangedAt = Date.now();
+  }
+}
+
+function construirHeartbeatStatus() {
+  const now = Date.now();
+
+  return Object.keys(plcStatus).reduce((acc, key) => {
+    const state = heartbeatState[key] || {
+      lastValue: plcStatus[key],
+      lastChangedAt: now,
+    };
+    const elapsedMs = Math.max(0, now - Number(state.lastChangedAt || now));
+    const remainingMs = Math.max(0, HEARTBEAT_TIMEOUT_MS - elapsedMs);
+
+    acc[key] = {
+      currentValue: plcStatus[key],
+      lastValue: state.lastValue,
+      lastChangedAt: state.lastChangedAt,
+      elapsedMs,
+      remainingMs,
+      timeoutMs: HEARTBEAT_TIMEOUT_MS,
+      isOnline: elapsedMs < HEARTBEAT_TIMEOUT_MS,
+    };
+
+    return acc;
+  }, {});
 }
 
 function guardarEventoSistema({ zona, equipo, tipo, estado, mensaje }) {
@@ -435,8 +485,10 @@ client.on("message", (topic, message) => {
     const valorPlc = Number.isNaN(numero) ? texto : numero;
 
     plcStatus[key] = valorPlc;
+    registrarCambioHeartbeat(key, valorPlc);
     if (topic === "Planta_Real_2") {
       plcStatus.cabo_viejo = valorPlc;
+      registrarCambioHeartbeat("cabo_viejo", valorPlc);
     }
     console.log(`PLC status ${key}:`, plcStatus[key]);
     return;
@@ -805,6 +857,7 @@ app.get("/api/niveles", (req, res) => {
   res.json({
     niveles,
     plcStatus,
+    heartbeatStatus: construirHeartbeatStatus(),
     bombasCaboviejo,
     plantaBotones,
   });
