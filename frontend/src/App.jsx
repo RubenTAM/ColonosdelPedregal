@@ -1562,32 +1562,35 @@ function PlantaCard({
   onOpenConfig,
   onOpenGraph,
 }) {
-  const [noDisponible, setNoDisponible] = useState(false);
   const bypassPlantaActivo = Number(plantaBotones?.bypassPlanta) === 1;
+  const bombasHabilitadas = Number(plantaBotones?.bombasHabilitadas) === 1;
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
-  const cardDisabled = noDisponible || communicationOffline;
+  const cardDisabled = communicationOffline;
+  const bombasDisabled = communicationOffline || !bombasHabilitadas;
 
   return (
     <article
       className={`dashboard-card dashboard-card--planta ${
-        cardDisabled ? "dashboard-card--disabled" : ""
+        communicationOffline ? "dashboard-card--disabled" : ""
       } ${communicationOffline ? "dashboard-card--offline" : ""}`}
       title={communicationOffline ? heartbeatMeta.label : undefined}
     >
       <button
-        className={`power-button ${noDisponible ? "power-button--off" : ""}`}
-        onClick={() => setNoDisponible(!noDisponible)}
+        className={`power-button ${
+          bombasHabilitadas ? "" : "power-button--off"
+        }`}
         type="button"
         disabled={communicationOffline}
+        title={
+          bombasHabilitadas ? "Bombas habilitadas" : "Bombas deshabilitadas"
+        }
       >
         ⏻
       </button>
 
-      {(noDisponible || communicationOffline) && (
-        <div className="card-disabled-banner">
-          {communicationOffline ? "SIN COMUNICACION" : "NO DISPONIBLE"}
-        </div>
+      {communicationOffline && (
+        <div className="card-disabled-banner">SIN COMUNICACION</div>
       )}
 
       <CardHeader
@@ -1599,15 +1602,15 @@ function PlantaCard({
       />
       <TankGauge level={level} />
 
-        {bypassPlantaActivo && (
-          <div className="planta-bypass-banner">
-            <span className="planta-bypass-banner__icon">!</span>
-            <span>Bypass Planta</span>
-          </div>
-        )}
+      {bypassPlantaActivo && (
+        <div className="planta-bypass-banner">
+          <span className="planta-bypass-banner__icon">!</span>
+          <span>Bypass Planta</span>
+        </div>
+      )}
 
-        <div className="control-section-card">
-          <div className="control-section-card__title">Control de Trenes</div>
+      <div className="control-section-card">
+        <div className="control-section-card__title">Control de Trenes</div>
 
         <div className="button-grid button-grid--3">
           <button
@@ -1639,15 +1642,30 @@ function PlantaCard({
         </div>
       </div>
 
-      <div className="control-section-card">
-        <div className="control-section-card__title">Control de Bombas</div>
+      <div
+        className={`control-section-card ${
+          bombasDisabled ? "control-section-card--disabled" : ""
+        }`}
+      >
+        <div className="control-section-card__header">
+          <div className="control-section-card__title">Control de Bombas</div>
+          <div
+            className={`control-section-card__status ${
+              bombasHabilitadas
+                ? "control-section-card__status--enabled"
+                : "control-section-card__status--disabled"
+            }`}
+          >
+            {bombasHabilitadas ? "Bombas habilitadas" : "Bombas deshabilitadas"}
+          </div>
+        </div>
 
         <div className="button-grid button-grid--3">
           <button
             className={`action-btn ${
               Number(plantaBotones?.bombaA) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={cardDisabled}
+            disabled={bombasDisabled}
           >
             BOMBA A
           </button>
@@ -1656,7 +1674,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.bombaB) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={cardDisabled}
+            disabled={bombasDisabled}
           >
             BOMBA B
           </button>
@@ -1665,7 +1683,7 @@ function PlantaCard({
             className={`action-btn ${
               Number(plantaBotones?.bombaC) === 1 ? "action-btn--active" : ""
             }`}
-            disabled={cardDisabled}
+            disabled={bombasDisabled}
           >
             BOMBA C
           </button>

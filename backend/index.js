@@ -80,6 +80,7 @@ let plantaBotones = {
   trenB: 0,
   trenC: 0,
   bypassPlanta: 0,
+  bombasHabilitadas: 1,
 };
 
 let guardandoHistorico = false;
@@ -200,6 +201,7 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_5: "trenA",
   Planta_Bool_6: "trenB",
   Planta_Bool_7: "trenC",
+  Planta_Bool_8: "bombasHabilitadas",
   Planta_Bool_9: "bypassPlanta",
 };
 

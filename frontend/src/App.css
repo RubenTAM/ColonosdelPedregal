@@ -1133,12 +1133,49 @@ button {
     0 8px 16px rgba(71, 91, 124, 0.08);
 }
 
-.control-section-card__title {
+.control-section-card__header {
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control-section-card__title {
   font-size: 14px;
   font-weight: 800;
   color: #31476b;
   letter-spacing: 0.02em;
+}
+
+.control-section-card__status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.control-section-card__status--enabled {
+  background: rgba(78, 164, 90, 0.14);
+  color: #2e7a38;
+  border: 1px solid rgba(78, 164, 90, 0.2);
+}
+
+.control-section-card__status--disabled {
+  background: rgba(111, 119, 135, 0.16);
+  color: #5b6474;
+  border: 1px solid rgba(111, 119, 135, 0.22);
+}
+
+.control-section-card--disabled {
+  opacity: 0.6;
+  filter: grayscale(0.4);
 }
 
 .plant-actions-row {
