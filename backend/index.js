@@ -1,6 +1,9 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const mqtt = require("mqtt");
+const twilio = require("twilio");
 const db = require("./database");
 const usersDb = require("./usersDatabase");
 const bcrypt = require("bcryptjs");
@@ -15,6 +18,13 @@ const PORT = 3001;
 const MQTT_URL = "mqtt://157.230.49.105:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 const HISTORICAL_TABLE = "niveles_historicos";
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
+const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "";
+const TWILIO_WHATSAPP_TO = (process.env.TWILIO_WHATSAPP_TO || "")
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean);
 
 const DEFAULT_LEVEL_CONFIG = {
   planta: { min: 0, max: 140 },
@@ -56,14 +66,32 @@ let plcStatus = {
 };
 
 const HEARTBEAT_TIMEOUT_MS = 20 * 60 * 1000;
+const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 
 let heartbeatState = Object.keys(plcStatus).reduce((acc, key) => {
   acc[key] = {
     lastValue: plcStatus[key],
     lastChangedAt: Date.now(),
+    isOnline: true,
   };
   return acc;
 }, {});
+
+const heartbeatLabels = {
+  planta: "Planta",
+  cabo_viejo: "Cabo Viejo",
+  falcone: "Falcone",
+  cinco: "Cinco",
+  seis: "Seis",
+  marilu: "Marilu",
+  pacifico: "Pacifico",
+  cuadrada: "Cuadrada",
+};
+
+const twilioClient =
+  TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN
+    ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    : null;
 
 let bombasCaboviejo = {
   p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -266,6 +294,7 @@ function registrarCambioHeartbeat(key, value) {
     heartbeatState[key] = {
       lastValue: value,
       lastChangedAt: Date.now(),
+      isOnline: true,
     };
     return;
   }
@@ -274,6 +303,51 @@ function registrarCambioHeartbeat(key, value) {
     heartbeatState[key].lastValue = value;
     heartbeatState[key].lastChangedAt = Date.now();
   }
+}
+
+async function enviarWhatsAppAlerta(mensaje) {
+  if (!twilioClient || !TWILIO_WHATSAPP_FROM || TWILIO_WHATSAPP_TO.length === 0) {
+    console.log("Twilio no configurado. Alerta omitida:", mensaje);
+    return;
+  }
+
+  await Promise.all(
+    TWILIO_WHATSAPP_TO.map(async (to) => {
+      try {
+        await twilioClient.messages.create({
+          from: TWILIO_WHATSAPP_FROM,
+          to,
+          body: mensaje,
+        });
+        console.log(`WhatsApp enviado a ${to}: ${mensaje}`);
+      } catch (error) {
+        console.error(`Error enviando WhatsApp a ${to}:`, error.message);
+      }
+    })
+  );
+}
+
+function revisarHeartbeatsYAlertas() {
+  const now = Date.now();
+
+  Object.keys(plcStatus).forEach((key) => {
+    const state = heartbeatState[key];
+    if (!state) return;
+
+    const elapsedMs = Math.max(0, now - Number(state.lastChangedAt || now));
+    const isOnline = elapsedMs < HEARTBEAT_TIMEOUT_MS;
+
+    if (state.isOnline === isOnline) return;
+
+    state.isOnline = isOnline;
+
+    const zona = heartbeatLabels[key] || key;
+    const mensaje = isOnline
+      ? `Conexion establecida con ${zona}`
+      : `Perdida de conexion con ${zona}`;
+
+    void enviarWhatsAppAlerta(mensaje);
+  });
 }
 
 function construirHeartbeatStatus() {
@@ -294,7 +368,10 @@ function construirHeartbeatStatus() {
       elapsedMs,
       remainingMs,
       timeoutMs: HEARTBEAT_TIMEOUT_MS,
-      isOnline: elapsedMs < HEARTBEAT_TIMEOUT_MS,
+      isOnline:
+        typeof state.isOnline === "boolean"
+          ? state.isOnline
+          : elapsedMs < HEARTBEAT_TIMEOUT_MS,
     };
 
     return acc;
@@ -372,6 +449,8 @@ const topics = [
 ];
 
 const client = mqtt.connect(MQTT_URL);
+
+setInterval(revisarHeartbeatsYAlertas, HEARTBEAT_CHECK_INTERVAL_MS);
 
 client.on("connect", () => {
   console.log("Conectado al broker:", MQTT_URL);
