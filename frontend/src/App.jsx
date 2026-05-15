@@ -62,8 +62,8 @@ function formatLevel(level) {
 
 function formatRawLevel(value) {
   const number = Number(value);
-  if (Number.isNaN(number)) return "0.0 ft";
-  return `${number.toFixed(1)} ft`;
+  if (Number.isNaN(number)) return "0.0 in³";
+  return `${number.toFixed(1)} in³`;
 }
 
 function formatHeartbeatDuration(ms) {
