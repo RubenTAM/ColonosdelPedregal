@@ -13,6 +13,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
 const PORT = 3001;
 const MQTT_URL = "mqtt://157.230.49.105:1883";
@@ -88,10 +89,33 @@ const heartbeatLabels = {
   cuadrada: "Cuadrada",
 };
 
+const whatsappLevelItems = [
+  { key: "planta", configKey: "planta", label: "Planta" },
+  { key: "cabo_viejo_tanques", configKey: "cabo_viejo", label: "Cabo Viejo" },
+  { key: "falcone", configKey: "falcone", label: "Falcone" },
+  { key: "cinco", configKey: "cinco", label: "Cinco" },
+  { key: "seis", configKey: "seis", label: "Seis" },
+  { key: "marilu", configKey: "marilu", label: "Marilu" },
+  { key: "pacifico", configKey: "pacifico", label: "Pacifico" },
+  { key: "cuadrada", configKey: "cuadrada", label: "Cuadrada" },
+];
+
 const twilioClient =
   TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN
     ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
     : null;
+
+let ultimasAlertasWhatsApp = [];
+
+function registrarIntentoWhatsApp(entry) {
+  ultimasAlertasWhatsApp = [
+    {
+      fecha: fechaLocalTijuana(),
+      ...entry,
+    },
+    ...ultimasAlertasWhatsApp,
+  ].slice(0, 20);
+}
 
 let bombasCaboviejo = {
   p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -289,6 +313,82 @@ function fechaLocalTijuana() {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
+function obtenerLevelConfig() {
+  return new Promise((resolve) => {
+    db.all(
+      `
+      SELECT tank_key, min, max
+      FROM level_config
+      `,
+      [],
+      (err, rows) => {
+        const config = { ...DEFAULT_LEVEL_CONFIG };
+
+        if (err) {
+          console.error("Error al cargar config de niveles:", err.message);
+          resolve(config);
+          return;
+        }
+
+        rows.forEach((row) => {
+          config[row.tank_key] = {
+            min: Number(row.min),
+            max: Number(row.max),
+          };
+        });
+
+        resolve(config);
+      }
+    );
+  });
+}
+
+function escalarNivel(valor, min, max) {
+  const value = Number(valor);
+  const minNum = Number(min);
+  const maxNum = Number(max);
+
+  if (Number.isNaN(value) || Number.isNaN(minNum) || Number.isNaN(maxNum)) {
+    return 0;
+  }
+
+  if (maxNum === minNum) return 0;
+
+  const percentage = ((value - minNum) / (maxNum - minNum)) * 100;
+  return Math.max(0, Math.min(100, percentage));
+}
+
+function formatearNumero(value, decimals = 1) {
+  const number = Number(value);
+  if (Number.isNaN(number)) return "0";
+  return number.toFixed(decimals);
+}
+
+async function construirMensajeNivelesWhatsApp() {
+  const config = await obtenerLevelConfig();
+  const lines = [`Niveles actuales (${fechaLocalTijuana()}):`];
+
+  whatsappLevelItems.forEach(({ key, configKey, label }) => {
+    const value = Number(niveles[key]) || 0;
+    const tankConfig = config[configKey] || DEFAULT_LEVEL_CONFIG[configKey];
+    const percentage = escalarNivel(value, tankConfig.min, tankConfig.max);
+
+    lines.push(
+      `${label}: ${formatearNumero(percentage, 0)}% (${formatearNumero(value)} / ${formatearNumero(tankConfig.max)})`
+    );
+  });
+
+  return lines.join("\n");
+}
+
+function normalizarComandoWhatsApp(value) {
+  return String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
 function registrarCambioHeartbeat(key, value) {
   if (!heartbeatState[key]) {
     heartbeatState[key] = {
@@ -308,20 +408,42 @@ function registrarCambioHeartbeat(key, value) {
 async function enviarWhatsAppAlerta(mensaje) {
   if (!twilioClient || !TWILIO_WHATSAPP_FROM || TWILIO_WHATSAPP_TO.length === 0) {
     console.log("Twilio no configurado. Alerta omitida:", mensaje);
+    registrarIntentoWhatsApp({
+      ok: false,
+      mensaje,
+      error: "Twilio no configurado",
+      destinos: TWILIO_WHATSAPP_TO.length,
+    });
     return;
   }
 
   await Promise.all(
     TWILIO_WHATSAPP_TO.map(async (to) => {
       try {
-        await twilioClient.messages.create({
+        const result = await twilioClient.messages.create({
           from: TWILIO_WHATSAPP_FROM,
           to,
           body: mensaje,
         });
-        console.log(`WhatsApp enviado a ${to}: ${mensaje}`);
+        console.log(
+          `WhatsApp enviado a ${to}: ${mensaje} (${result.sid}, ${result.status})`
+        );
+        registrarIntentoWhatsApp({
+          ok: true,
+          mensaje,
+          to,
+          sid: result.sid,
+          status: result.status,
+        });
       } catch (error) {
         console.error(`Error enviando WhatsApp a ${to}:`, error.message);
+        registrarIntentoWhatsApp({
+          ok: false,
+          mensaje,
+          to,
+          error: error.message,
+          code: error.code,
+        });
       }
     })
   );
@@ -343,8 +465,8 @@ function revisarHeartbeatsYAlertas() {
 
     const zona = heartbeatLabels[key] || key;
     const mensaje = isOnline
-      ? `Conexion establecida con ${zona}`
-      : `Perdida de conexion con ${zona}`;
+      ? `Recuperacion de Conexion con "${zona}" 😄🟢`
+      : `Perdida de Conexion con "${zona}" 💀🔴`;
 
     void enviarWhatsAppAlerta(mensaje);
   });
@@ -969,9 +1091,31 @@ app.get("/api/niveles", (req, res) => {
     niveles,
     plcStatus,
     heartbeatStatus: construirHeartbeatStatus(),
+    alertasWhatsApp: ultimasAlertasWhatsApp,
+    twilio: {
+      configured:
+        Boolean(twilioClient) &&
+        Boolean(TWILIO_WHATSAPP_FROM) &&
+        TWILIO_WHATSAPP_TO.length > 0,
+      destinos: TWILIO_WHATSAPP_TO.length,
+    },
     bombasCaboviejo,
     plantaBotones,
   });
+});
+
+app.post("/api/twilio/whatsapp", async (req, res) => {
+  const incomingText = normalizarComandoWhatsApp(req.body.Body);
+  const twiml = new twilio.twiml.MessagingResponse();
+
+  if (incomingText === "niveles" || incomingText === "nivel") {
+    const mensaje = await construirMensajeNivelesWhatsApp();
+    twiml.message(mensaje);
+  } else {
+    twiml.message('Comando no reconocido. Envia "Niveles" para consultar los niveles actuales.');
+  }
+
+  res.type("text/xml").send(twiml.toString());
 });
 
 app.get("/api/eventos", verifyToken, (req, res) => {
