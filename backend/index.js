@@ -210,6 +210,11 @@ const plantaBypassTopics = {
   reset: "Planta_Bypass_R",
 };
 
+const plantaBombasControlTopics = {
+  set: "Planta_Bombas_Crl_S",
+  reset: "Planta_Bombas_Crl_R",
+};
+
 const plantaEquipoEventos = {
   bombaA: { equipo: "Bomba A", tipo: "bomba" },
   bombaB: { equipo: "Bomba B", tipo: "bomba" },
@@ -837,6 +842,31 @@ app.post("/api/planta/bypass-toggle", verifyToken, onlyAdmin, (req, res) => {
   const bypassActivo = Number(plantaBotones.bypassPlanta) === 1;
   const targetState = bypassActivo ? 0 : 1;
   const topic = bypassActivo ? plantaBypassTopics.reset : plantaBypassTopics.set;
+
+  client.publish(topic, "1", (err) => {
+    if (err) {
+      return res.status(500).json({ error: "No se pudo enviar al PLC" });
+    }
+
+    res.json({
+      ok: true,
+      topic,
+      targetState,
+      usuario: req.user.username,
+    });
+  });
+});
+
+app.post("/api/planta/bombas-toggle", verifyToken, onlyAdmin, (req, res) => {
+  if (!client.connected) {
+    return res.status(503).json({ error: "MQTT no conectado" });
+  }
+
+  const bombasHabilitadas = Number(plantaBotones.bombasHabilitadas) === 1;
+  const targetState = bombasHabilitadas ? 0 : 1;
+  const topic = bombasHabilitadas
+    ? plantaBombasControlTopics.reset
+    : plantaBombasControlTopics.set;
 
   client.publish(topic, "1", (err) => {
     if (err) {

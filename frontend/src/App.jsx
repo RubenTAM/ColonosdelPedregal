@@ -337,6 +337,7 @@ export default function App() {
   const [graphModalTank, setGraphModalTank] = useState(null);
   const [pumpConfirm, setPumpConfirm] = useState(null);
   const [plantaBypassRequest, setPlantaBypassRequest] = useState(null);
+  const [plantaBombasRequest, setPlantaBombasRequest] = useState(null);
 
   const [configForm, setConfigForm] = useState({
     min: "",
@@ -422,6 +423,48 @@ export default function App() {
       })
       .catch((err) => {
         setPlantaBypassRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "error",
+                error: err.message,
+              }
+            : prev
+        );
+      });
+  };
+
+  const togglePlantaBombas = () => {
+    if (authUser?.role !== "admin") return;
+
+    setPlantaBombasRequest({
+      username: authUser.username,
+      status: "sending",
+      error: "",
+      targetState: Number(plantaBotones?.bombasHabilitadas) === 1 ? 0 : 1,
+    });
+
+    apiFetch("/api/planta/bombas-toggle", {
+      method: "POST",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo enviar");
+        return data;
+      })
+      .then((data) => {
+        setPlantaBombasRequest((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: "checking",
+                targetState: Number(data.targetState),
+              }
+            : prev
+        );
+      })
+      .catch((err) => {
+        setPlantaBombasRequest((prev) =>
           prev
             ? {
                 ...prev,
@@ -556,6 +599,36 @@ export default function App() {
   }, [plantaBypassRequest]);
 
   useEffect(() => {
+    if (!plantaBombasRequest || plantaBombasRequest.status !== "checking") return;
+
+    if (
+      Number(plantaBotones?.bombasHabilitadas) !==
+      Number(plantaBombasRequest.targetState)
+    ) {
+      return;
+    }
+
+    setPlantaBombasRequest((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "success",
+          }
+        : prev
+    );
+  }, [plantaBombasRequest, plantaBotones]);
+
+  useEffect(() => {
+    if (!plantaBombasRequest || plantaBombasRequest.status !== "success") return;
+
+    const closeTimer = setTimeout(() => {
+      setPlantaBombasRequest(null);
+    }, 1800);
+
+    return () => clearTimeout(closeTimer);
+  }, [plantaBombasRequest]);
+
+  useEffect(() => {
     if (!pumpConfirm || pumpConfirm.status !== "checking") return;
 
     const timeout = setTimeout(() => {
@@ -588,6 +661,23 @@ export default function App() {
 
     return () => clearTimeout(timeout);
   }, [plantaBypassRequest]);
+
+  useEffect(() => {
+    if (!plantaBombasRequest || plantaBombasRequest.status !== "checking") return;
+
+    const timeout = setTimeout(() => {
+      setPlantaBombasRequest((prev) =>
+        prev && prev.status === "checking"
+          ? {
+              ...prev,
+              status: "incomplete",
+            }
+          : prev
+      );
+    }, 10000);
+
+    return () => clearTimeout(timeout);
+  }, [plantaBombasRequest]);
 
   useEffect(() => {
     const onResize = () => {
@@ -1107,6 +1197,8 @@ export default function App() {
                 heartbeat={heartbeatStatus.planta}
                 heartbeatNow={heartbeatNow}
                 plantaBotones={plantaBotones}
+                bombasRequest={plantaBombasRequest}
+                onToggleBombas={togglePlantaBombas}
                 onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
               />
@@ -1559,6 +1651,8 @@ function PlantaCard({
   heartbeat,
   heartbeatNow,
   plantaBotones,
+  bombasRequest,
+  onToggleBombas,
   onOpenConfig,
   onOpenGraph,
 }) {
@@ -1568,6 +1662,15 @@ function PlantaCard({
   const communicationOffline = !heartbeatMeta.isOnline;
   const cardDisabled = communicationOffline;
   const bombasDisabled = communicationOffline || !bombasHabilitadas;
+  const bombasBusy =
+    bombasRequest?.status === "sending" || bombasRequest?.status === "checking";
+  const bombasStatusText = {
+    sending: "Enviando orden al PLC...",
+    checking: "Esperando confirmacion del PLC...",
+    success: "Asignacion correcta",
+    incomplete: "Asignacion incompleta",
+    error: bombasRequest?.error || "No se pudo enviar la orden",
+  }[bombasRequest?.status];
 
   return (
     <article
@@ -1581,7 +1684,8 @@ function PlantaCard({
           bombasHabilitadas ? "" : "power-button--off"
         }`}
         type="button"
-        disabled={communicationOffline}
+        onClick={onToggleBombas}
+        disabled={communicationOffline || bombasBusy}
         title={
           bombasHabilitadas ? "Bombas habilitadas" : "Bombas deshabilitadas"
         }
@@ -1659,6 +1763,15 @@ function PlantaCard({
             {bombasHabilitadas ? "Bombas habilitadas" : "Bombas deshabilitadas"}
           </div>
         </div>
+
+        {bombasStatusText && (
+          <div
+            className={`pump-confirm-modal__status pump-confirm-modal__status--${bombasRequest?.status}`}
+          >
+            {bombasBusy && <span className="pump-confirm-modal__spinner" />}
+            <span>{bombasStatusText}</span>
+          </div>
+        )}
 
         <div className="button-grid button-grid--3">
           <button
