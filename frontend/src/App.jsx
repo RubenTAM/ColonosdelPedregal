@@ -36,6 +36,13 @@ const CABO_VIEJO_MODE_KEYS = {
   AUTO: "auto",
 };
 
+function userCanOperate(user) {
+  return (
+    (user?.username === "admin" && user?.role === "admin") ||
+    user?.role === "mantenimiento"
+  );
+}
+
 function escalarNivel(valor, min, max) {
   const v = Number(valor);
   const minNum = Number(min);
@@ -347,6 +354,8 @@ export default function App() {
   });
 
   const openConfigModal = (tankKey) => {
+    if (!userCanOperate(authUser)) return;
+
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
 
     setSelectedTank(tankKey);
@@ -373,7 +382,7 @@ export default function App() {
   };
 
   const openPumpConfirm = (pumpName, mode) => {
-    if (authUser?.role !== "admin") return;
+    if (!userCanOperate(authUser)) return;
     const pumpKey = CABO_VIEJO_PUMP_KEYS[pumpName];
     const modeKey = CABO_VIEJO_MODE_KEYS[mode];
 
@@ -395,7 +404,7 @@ export default function App() {
   };
 
   const togglePlantaBypass = () => {
-    if (authUser?.role !== "admin") return;
+    if (!userCanOperate(authUser)) return;
 
     setPlantaBypassRequest({
       username: authUser.username,
@@ -437,7 +446,7 @@ export default function App() {
   };
 
   const togglePlantaBombas = () => {
-    if (authUser?.role !== "admin") return;
+    if (!userCanOperate(authUser)) return;
 
     setPlantaBombasRequest({
       username: authUser.username,
@@ -521,6 +530,7 @@ export default function App() {
   };
 
   const saveTankConfig = () => {
+    if (!userCanOperate(authUser)) return;
     if (!selectedTank) return;
     const min = Number(configForm.min);
     const max = Number(configForm.max);
@@ -774,7 +784,14 @@ export default function App() {
   }, [authUser]);
 
   useEffect(() => {
-    if (!authUser || activeView !== "usuarios") return;
+    if (
+      !authUser ||
+      authUser.username !== "admin" ||
+      authUser.role !== "admin" ||
+      activeView !== "usuarios"
+    ) {
+      return;
+    }
 
     apiFetch("/api/users")
       .then((res) => res.json())
@@ -1036,7 +1053,8 @@ export default function App() {
     );
   }
 
-  const isAdmin = authUser.role === "admin";
+  const isAdmin = authUser.username === "admin" && authUser.role === "admin";
+  const canOperate = userCanOperate(authUser);
 
   return (
     <div className="app-shell">
@@ -1112,6 +1130,7 @@ export default function App() {
             <span>Consultas</span>
           </button>
 
+          {isAdmin && (
           <button
             className={`nav-item ${
               activeView === "usuarios" ? "nav-item--active" : ""
@@ -1121,6 +1140,7 @@ export default function App() {
             <span className="nav-item__icon">👥</span>
             <span>Usuarios</span>
           </button>
+          )}
         </nav>
 
         <div className="sidebar__footer">
@@ -1203,6 +1223,7 @@ export default function App() {
                 onToggleBombas={togglePlantaBombas}
                 onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
+                canOperate={canOperate}
               />
 
               <CaboViejoCard
@@ -1220,7 +1241,8 @@ export default function App() {
                 onRequestMode={(pumpName, mode) =>
                   openPumpConfirm(pumpName, mode)
                 }
-                canRequestMode={isAdmin}
+                canRequestMode={canOperate}
+                canConfigure={canOperate}
               />
 
               <FalconeCard
@@ -1230,6 +1252,7 @@ export default function App() {
                 heartbeatNow={heartbeatNow}
                 onOpenConfig={() => openConfigModal("falcone")}
                 onOpenGraph={() => openGraphModal("falcone")}
+                canConfigure={canOperate}
               />
             </div>
 
@@ -1249,6 +1272,7 @@ export default function App() {
                         heartbeatNow={heartbeatNow}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
                         onOpenGraph={() => openGraphModal(item.tankKey)}
+                        canConfigure={canOperate}
                       />
                     )
                   )}
@@ -1413,7 +1437,7 @@ export default function App() {
           </section>
         )}
 
-        {activeView === "usuarios" && (
+        {activeView === "usuarios" && isAdmin && (
           <section className="content">
             <div className="users-page">
               <div
@@ -1474,7 +1498,7 @@ export default function App() {
                       }
                     >
                       <option value="viewer">viewer</option>
-                      <option value="admin">admin</option>
+                      <option value="mantenimiento">mantenimiento</option>
                     </select>
                   </div>
 
@@ -1565,7 +1589,7 @@ export default function App() {
             setForm={setConfigForm}
             onClose={closeConfigModal}
             onSave={saveTankConfig}
-            isAdmin={authUser?.role === "admin"}
+            isAdmin={canOperate}
             plantaBypassActive={Number(plantaBotones?.bypassPlanta) === 1}
             plantaBypassRequest={plantaBypassRequest}
             onTogglePlantaBypass={togglePlantaBypass}
@@ -1657,6 +1681,7 @@ function PlantaCard({
   onToggleBombas,
   onOpenConfig,
   onOpenGraph,
+  canOperate = false,
 }) {
   const bypassPlantaActivo = Number(plantaBotones?.bypassPlanta) === 1;
   const bombasHabilitadas = Number(plantaBotones?.bombasHabilitadas) === 1;
@@ -1687,9 +1712,13 @@ function PlantaCard({
         }`}
         type="button"
         onClick={onToggleBombas}
-        disabled={communicationOffline || bombasBusy}
+        disabled={communicationOffline || bombasBusy || !canOperate}
         title={
-          bombasHabilitadas ? "Bombas habilitadas" : "Bombas deshabilitadas"
+          canOperate
+            ? bombasHabilitadas
+              ? "Bombas habilitadas"
+              : "Bombas deshabilitadas"
+            : "Solo mantenimiento o admin pueden modificar"
         }
       >
         ⏻
@@ -1704,7 +1733,7 @@ function PlantaCard({
         onOpenConfig={onOpenConfig}
         heartbeat={heartbeat}
         heartbeatNow={heartbeatNow}
-        disableActions={cardDisabled}
+        disableActions={cardDisabled || !canOperate}
       />
       <TankGauge level={level} />
 
@@ -1830,10 +1859,11 @@ function CaboViejoCard({
   p71a,
   p71b,
   bombasCaboviejo,
-  onOpenConfig,
-  onOpenGraph,
-  onRequestMode,
+        onOpenConfig,
+        onOpenGraph,
+        onRequestMode,
   canRequestMode = false,
+  canConfigure = false,
 }) {
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
@@ -1849,7 +1879,7 @@ function CaboViejoCard({
         onOpenConfig={onOpenConfig}
         heartbeat={heartbeat}
         heartbeatNow={heartbeatNow}
-        disableActions={communicationOffline}
+        disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} />
 
@@ -1919,6 +1949,7 @@ function FalconeCard({
   heartbeatNow,
   onOpenConfig,
   onOpenGraph,
+  canConfigure = false,
 }) {
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
@@ -1934,7 +1965,7 @@ function FalconeCard({
         onOpenConfig={onOpenConfig}
         heartbeat={heartbeat}
         heartbeatNow={heartbeatNow}
-        disableActions={communicationOffline}
+        disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} />
 
@@ -1960,6 +1991,7 @@ function MiniTankCard({
   heartbeatNow,
   onOpenConfig,
   onOpenGraph,
+  canConfigure = false,
 }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
@@ -1977,7 +2009,7 @@ function MiniTankCard({
         <button
           className="mini-card__menu"
           onClick={onOpenConfig}
-          disabled={communicationOffline}
+          disabled={communicationOffline || !canConfigure}
         >
           ⋮
         </button>
@@ -2095,7 +2127,7 @@ function PumpBox({
       : {
           type: "button",
           disabled: true,
-          title: "Solo un usuario admin puede modificar esta bomba",
+          title: "Solo mantenimiento o admin pueden modificar esta bomba",
         };
 
   return (
@@ -2622,7 +2654,7 @@ function LevelConfigModal({
                 ? plantaBypassActive
                   ? "Desactivar bypass de planta"
                   : "Activar bypass de planta"
-                : "Solo un usuario admin puede modificar el bypass"
+                : "Solo mantenimiento o admin pueden modificar el bypass"
             }
           >
             BYPASS PLANTA

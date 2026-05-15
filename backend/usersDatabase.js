@@ -55,6 +55,12 @@ usersDb.serialize(() => {
       }
     }
   );
+
+  usersDb.run(
+    `UPDATE users SET role = 'mantenimiento' WHERE username <> 'admin' AND role = 'admin'`
+  );
+
+  usersDb.run(`UPDATE users SET role = 'admin' WHERE username = 'admin'`);
 });
 
 module.exports = usersDb;

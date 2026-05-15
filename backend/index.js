@@ -373,9 +373,7 @@ async function construirMensajeNivelesWhatsApp() {
     const tankConfig = config[configKey] || DEFAULT_LEVEL_CONFIG[configKey];
     const percentage = escalarNivel(value, tankConfig.min, tankConfig.max);
 
-    lines.push(
-      `${label}: ${formatearNumero(percentage, 0)}% (${formatearNumero(value)} / ${formatearNumero(tankConfig.max)})`
-    );
+    lines.push(`${label}: ${formatearNumero(percentage, 0)}%`);
   });
 
   return lines.join("\n");
@@ -466,7 +464,7 @@ function revisarHeartbeatsYAlertas() {
     const zona = heartbeatLabels[key] || key;
     const mensaje = isOnline
       ? `Recuperacion de Conexion con "${zona}" 😄🟢`
-      : `Perdida de Conexion con "${zona}" 💀🔴`;
+      : `Perdida de Conexion con "${zona}"💀🔴`;
 
     void enviarWhatsAppAlerta(mensaje);
   });
@@ -789,8 +787,18 @@ function verifyToken(req, res, next) {
 }
 
 function onlyAdmin(req, res, next) {
-  if (req.user.role !== "admin") {
+  if (req.user.username !== "admin" || req.user.role !== "admin") {
     return res.status(403).json({ error: "Solo admin puede hacer esto" });
+  }
+  next();
+}
+
+function canOperate(req, res, next) {
+  const isAdminUser = req.user.username === "admin" && req.user.role === "admin";
+  const isMaintenanceUser = req.user.role === "mantenimiento";
+
+  if (!isAdminUser && !isMaintenanceUser) {
+    return res.status(403).json({ error: "No tienes permiso para modificar" });
   }
   next();
 }
@@ -819,10 +827,27 @@ app.post("/api/auth/login", (req, res) => {
 
       usersDb.run(
         `INSERT INTO login_logs (username, role) VALUES (?, ?)`,
-        [user.username, user.role]
+        [
+          user.username,
+          user.username === "admin"
+            ? "admin"
+            : user.role === "mantenimiento"
+              ? "mantenimiento"
+              : "viewer",
+        ]
       );
 
-      const token = createToken(user);
+      const normalizedUser = {
+        ...user,
+        role:
+          user.username === "admin"
+            ? "admin"
+            : user.role === "mantenimiento"
+              ? "mantenimiento"
+              : "viewer",
+      };
+
+      const token = createToken(normalizedUser);
 
       res.json({
         ok: true,
@@ -830,7 +855,7 @@ app.post("/api/auth/login", (req, res) => {
         user: {
           id: user.id,
           username: user.username,
-          role: user.role,
+          role: normalizedUser.role,
         },
       });
     }
@@ -844,7 +869,7 @@ app.get("/api/auth/me", verifyToken, (req, res) => {
   });
 });
 
-app.get("/api/users", verifyToken, (req, res) => {
+app.get("/api/users", verifyToken, onlyAdmin, (req, res) => {
   usersDb.all(
     `SELECT id, username, role, created_at FROM users ORDER BY id DESC`,
     [],
@@ -864,7 +889,10 @@ app.post("/api/users", verifyToken, onlyAdmin, (req, res) => {
     return res.status(400).json({ error: "Completa usuario y contraseña" });
   }
 
-  const finalRole = role === "admin" ? "admin" : "viewer";
+  const requestedRole = String(role || "").trim().toLowerCase();
+  const finalRole = ["mantenimiento", "mtto"].includes(requestedRole)
+    ? "mantenimiento"
+    : "viewer";
   const hash = bcrypt.hashSync(password, 10);
 
   usersDb.run(
@@ -913,7 +941,7 @@ app.delete("/api/users/:id", verifyToken, onlyAdmin, (req, res) => {
   });
 });
 
-app.get("/api/login-logs", verifyToken, (req, res) => {
+app.get("/api/login-logs", verifyToken, onlyAdmin, (req, res) => {
   usersDb.all(
     `SELECT id, username, role, datetime(login_time, 'localtime') AS login_time
      FROM login_logs
@@ -955,7 +983,7 @@ app.get("/api/level-config", verifyToken, (req, res) => {
   );
 });
 
-app.post("/api/level-config/:tankKey", verifyToken, (req, res) => {
+app.post("/api/level-config/:tankKey", verifyToken, canOperate, (req, res) => {
   const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
   const defaults = DEFAULT_LEVEL_CONFIG[tankKey];
 
@@ -997,7 +1025,7 @@ app.post("/api/level-config/:tankKey", verifyToken, (req, res) => {
   );
 });
 
-app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, onlyAdmin, (req, res) => {
+app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, canOperate, (req, res) => {
   const bomba = String(req.params.bomba || "").trim().toLowerCase();
   const modo = String(req.body.mode || "").trim().toLowerCase();
   const topic = caboViejoModoComandos[bomba]?.[modo];
@@ -1035,7 +1063,7 @@ app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, onlyAdmin, (req, res
   });
 });
 
-app.post("/api/planta/bypass-toggle", verifyToken, onlyAdmin, (req, res) => {
+app.post("/api/planta/bypass-toggle", verifyToken, canOperate, (req, res) => {
   if (!client.connected) {
     return res.status(503).json({ error: "MQTT no conectado" });
   }
@@ -1058,7 +1086,7 @@ app.post("/api/planta/bypass-toggle", verifyToken, onlyAdmin, (req, res) => {
   });
 });
 
-app.post("/api/planta/bombas-toggle", verifyToken, onlyAdmin, (req, res) => {
+app.post("/api/planta/bombas-toggle", verifyToken, canOperate, (req, res) => {
   if (!client.connected) {
     return res.status(503).json({ error: "MQTT no conectado" });
   }
