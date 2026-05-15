@@ -60,6 +60,12 @@ function formatLevel(level) {
   return `${Math.round(safeLevel)}%`;
 }
 
+function formatRawLevel(value) {
+  const number = Number(value);
+  if (Number.isNaN(number)) return "0.0 ft";
+  return `${number.toFixed(1)} ft`;
+}
+
 function formatHeartbeatDuration(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(totalSeconds / 3600);
@@ -929,6 +935,7 @@ export default function App() {
       title: "Cinco",
       tankKey: "cinco",
       level: nivelesEscalados.cinco,
+      rawLevel: niveles.cinco,
       plc: plcStatus.cinco,
       heartbeat: heartbeatStatus.cinco,
     },
@@ -936,6 +943,7 @@ export default function App() {
       title: "Seis",
       tankKey: "seis",
       level: nivelesEscalados.seis,
+      rawLevel: niveles.seis,
       plc: plcStatus.seis,
       heartbeat: heartbeatStatus.seis,
     },
@@ -943,6 +951,7 @@ export default function App() {
       title: "Marilu",
       tankKey: "marilu",
       level: nivelesEscalados.marilu,
+      rawLevel: niveles.marilu,
       plc: plcStatus.marilu,
       heartbeat: heartbeatStatus.marilu,
     },
@@ -950,6 +959,7 @@ export default function App() {
       title: "Pacifico",
       tankKey: "pacifico",
       level: nivelesEscalados.pacifico,
+      rawLevel: niveles.pacifico,
       plc: plcStatus.pacifico,
       heartbeat: heartbeatStatus.pacifico,
     },
@@ -957,6 +967,7 @@ export default function App() {
       title: "Cuadrada",
       tankKey: "cuadrada",
       level: nivelesEscalados.cuadrada,
+      rawLevel: niveles.cuadrada,
       plc: plcStatus.cuadrada,
       heartbeat: heartbeatStatus.cuadrada,
     },
@@ -1215,6 +1226,7 @@ export default function App() {
             <div className="cards-grid">
               <PlantaCard
                 level={nivelesEscalados.planta}
+                rawLevel={niveles.planta}
                 plc={plcStatus.planta}
                 heartbeat={heartbeatStatus.planta}
                 heartbeatNow={heartbeatNow}
@@ -1228,6 +1240,7 @@ export default function App() {
 
               <CaboViejoCard
                 level={nivelesEscalados.cabo_viejo_tanques}
+                rawLevel={niveles.cabo_viejo_tanques}
                 plc={plcStatus.cabo_viejo}
                 heartbeat={heartbeatStatus.cabo_viejo}
                 heartbeatNow={heartbeatNow}
@@ -1247,6 +1260,7 @@ export default function App() {
 
               <FalconeCard
                 level={nivelesEscalados.falcone}
+                rawLevel={niveles.falcone}
                 plc={plcStatus.falcone}
                 heartbeat={heartbeatStatus.falcone}
                 heartbeatNow={heartbeatNow}
@@ -1267,6 +1281,7 @@ export default function App() {
                         key={item.title}
                         title={item.title}
                         level={item.level}
+                        rawLevel={item.rawLevel}
                         plc={item.plc}
                         heartbeat={item.heartbeat}
                         heartbeatNow={heartbeatNow}
@@ -1673,6 +1688,7 @@ function LoginScreen({ loginForm, setLoginForm, handleLogin, loginError }) {
 
 function PlantaCard({
   level,
+  rawLevel,
   plc,
   heartbeat,
   heartbeatNow,
@@ -1735,7 +1751,7 @@ function PlantaCard({
         heartbeatNow={heartbeatNow}
         disableActions={cardDisabled || !canOperate}
       />
-      <TankGauge level={level} />
+      <TankGauge level={level} rawLevel={rawLevel} />
 
       {bypassPlantaActivo && (
         <div className="planta-bypass-banner">
@@ -1851,6 +1867,7 @@ function PlantaCard({
 
 function CaboViejoCard({
   level,
+  rawLevel,
   plc,
   heartbeat,
   heartbeatNow,
@@ -1881,7 +1898,7 @@ function CaboViejoCard({
         heartbeatNow={heartbeatNow}
         disableActions={communicationOffline || !canConfigure}
       />
-      <TankGauge level={level} />
+      <TankGauge level={level} rawLevel={rawLevel} />
 
       <div className="pump-grid pump-grid--cabo">
         <PumpBox
@@ -1944,6 +1961,7 @@ function CaboViejoTankCard({ level, plc, onOpenConfig }) {
 
 function FalconeCard({
   level,
+  rawLevel,
   plc,
   heartbeat,
   heartbeatNow,
@@ -1967,7 +1985,7 @@ function FalconeCard({
         heartbeatNow={heartbeatNow}
         disableActions={communicationOffline || !canConfigure}
       />
-      <TankGauge level={level} />
+      <TankGauge level={level} rawLevel={rawLevel} />
 
       <div className="pump-grid pump-grid--2">
         <PumpBox name="P80A" runtime={0} state="ALARMADO" active="OFF" alert />
@@ -1986,6 +2004,7 @@ function FalconeCard({
 function MiniTankCard({
   title,
   level,
+  rawLevel,
   plc,
   heartbeat,
   heartbeatNow,
@@ -2028,7 +2047,10 @@ function MiniTankCard({
             </div>
           </div>
 
-          <div className="mini-gauge__value">{formatLevel(safeLevel)}</div>
+          <div className="mini-gauge__value">
+            <span className="mini-gauge__percent">{formatLevel(safeLevel)}</span>
+            <span className="mini-gauge__raw">{formatRawLevel(rawLevel)}</span>
+          </div>
         </div>
       </div>
 
@@ -2172,7 +2194,7 @@ function PumpBox({
   );
 }
 
-function TankGauge({ level }) {
+function TankGauge({ level, rawLevel }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
 
   return (
@@ -2186,7 +2208,10 @@ function TankGauge({ level }) {
           </div>
         </div>
 
-        <div className="gauge__value">{formatLevel(safeLevel)}</div>
+        <div className="gauge__value">
+          <span className="gauge__percent">{formatLevel(safeLevel)}</span>
+          <span className="gauge__raw">{formatRawLevel(rawLevel)}</span>
+        </div>
       </div>
     </div>
   );

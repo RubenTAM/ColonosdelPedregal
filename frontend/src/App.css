@@ -562,23 +562,43 @@ button {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #24334d;
-  font-size: 17px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
   z-index: 5;
   text-shadow: 0 1px 0 rgba(255,255,255,0.35);
   transition: color 0.35s ease;
+}
+
+.gauge__percent {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.gauge__raw {
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(36, 51, 77, 0.68);
 }
 
 .gauge--low .gauge__value {
   color: #8c3d21;
 }
 
+.gauge--low .gauge__raw {
+  color: rgba(140, 61, 33, 0.68);
+}
+
 .gauge--high .gauge__value {
   color: #215a3f;
+}
+
+.gauge--high .gauge__raw {
+  color: rgba(33, 90, 63, 0.68);
 }
 
 /* BUTTONS */
@@ -959,21 +979,42 @@ button {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #24334d;
-  font-size: 15px;
-  font-weight: 800;
   z-index: 6;
   transition: color 0.35s ease;
+}
+
+.mini-gauge__percent {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.mini-gauge__raw {
+  margin-top: 4px;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(36, 51, 77, 0.65);
 }
 
 .mini-gauge--low .mini-gauge__value {
   color: #8c3d21;
 }
 
+.mini-gauge--low .mini-gauge__raw {
+  color: rgba(140, 61, 33, 0.65);
+}
+
 .mini-gauge--high .mini-gauge__value {
   color: #215a3f;
+}
+
+.mini-gauge--high .mini-gauge__raw {
+  color: rgba(33, 90, 63, 0.65);
 }
 
 .alarm-log-header {

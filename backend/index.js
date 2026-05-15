@@ -171,7 +171,7 @@ const topicToKeyPlc = {
   Cinco_Real_2: "cinco",
   Seis_Real_2: "seis",
   Marilu_Real_2: "marilu",
-  Pacifico_Real_2: "pacifico",
+  Pacifico_Real_999_PRUEBA_ALERTA: "pacifico",
   Cuadrada_Real_2: "cuadrada",
 };
 
