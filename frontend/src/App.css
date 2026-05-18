@@ -1522,7 +1522,7 @@ button {
 .historico-log-head,
 .historico-log-row {
   display: grid;
-  grid-template-columns: 1.1fr 2.8fr 1fr 1.5fr;
+  grid-template-columns: 0.9fr 4fr 0.9fr 1.4fr;
   gap: 14px;
   align-items: center;
   padding: 16px 18px;
@@ -1559,6 +1559,10 @@ button {
 
 .historico-message {
   color: #465875;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  white-space: normal;
 }
 
 .historico-date {

@@ -276,13 +276,53 @@ const plantaEquipoEventos = {
   trenC: { equipo: "Tren C", tipo: "tren" },
 };
 
-function procesarEventoPlanta(key, valorAnterior, valorNuevo) {
+const bombaCNivelesSnapshotItems = [
+  { key: "planta", configKey: "planta", label: "PLANTA" },
+  { key: "cabo_viejo_tanques", configKey: "cabo_viejo", label: "CV" },
+  { key: "cinco", configKey: "cinco", label: "CINCO" },
+  { key: "seis", configKey: "seis", label: "SEIS" },
+  { key: "cuadrada", configKey: "cuadrada", label: "CUADRA" },
+  { key: "falcone", configKey: "falcone", label: "FALC" },
+  { key: "marilu", configKey: "marilu", label: "MARI" },
+  { key: "pacifico", configKey: "pacifico", label: "PACF" },
+];
+
+function tomarSnapshotNivelesActuales() {
+  return bombaCNivelesSnapshotItems.reduce((acc, item) => {
+    acc[item.key] = Number(niveles[item.key]) || 0;
+    return acc;
+  }, {});
+}
+
+function construirStatusNivelesBombaC(snapshot, config) {
+  return bombaCNivelesSnapshotItems
+    .map(({ key, configKey, label }) => {
+      const tankConfig = config[configKey] || DEFAULT_LEVEL_CONFIG[configKey];
+      const percentage = escalarNivel(
+        snapshot[key],
+        tankConfig.min,
+        tankConfig.max
+      );
+
+      return `[${label}]: ${formatearNumero(percentage, 0)}%`;
+    })
+    .join(" ");
+}
+
+async function procesarEventoPlanta(key, valorAnterior, valorNuevo) {
   const configEvento = plantaEquipoEventos[key];
 
   if (!configEvento || Number(valorAnterior) === Number(valorNuevo)) return;
 
   const estado = Number(valorNuevo) === 1 ? "encendido" : "apagado";
-  const mensaje = `${configEvento.equipo} ${estado}`;
+  let mensaje = `${configEvento.equipo} ${estado}`;
+
+  if (key === "bombaC" && Number(valorNuevo) === 0) {
+    const snapshotNiveles = tomarSnapshotNivelesActuales();
+    const config = await obtenerLevelConfig();
+    const statusNiveles = construirStatusNivelesBombaC(snapshotNiveles, config);
+    mensaje = `${configEvento.equipo} apagada : STATUS => ${statusNiveles}`;
+  }
 
   guardarEventoSistema({
     zona: "PLANTA",
@@ -604,7 +644,7 @@ client.on("message", (topic, message) => {
     plantaBotones[key] = valorNormalizado;
     plantaEventoPrevio[key] = valorNormalizado;
 
-    procesarEventoPlanta(key, valorAnterior, valorNormalizado);
+    void procesarEventoPlanta(key, valorAnterior, valorNormalizado);
 
     console.log(`Planta botón ${key}:`, valorNormalizado);
     return;
