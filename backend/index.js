@@ -19,7 +19,7 @@ const PORT = 3001;
 const MQTT_URL = "mqtt://157.230.49.105:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 const HISTORICAL_TABLE = "niveles_historicos";
-const MANUAL_ACTION_WINDOW_MS = 15000;
+const MANUAL_ACTION_WINDOW_MS = 30 * 1000;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "";
@@ -786,15 +786,10 @@ client.on("message", (topic, message) => {
       const equipo = caboViejoBombasEventos[bomba];
       const modo = caboViejoP70AModos[campo];
       const pendienteKey = `${bomba}.${campo}`;
-      const pendiente = caboViejoModoPendiente[pendienteKey];
-      const pendienteVigente =
-        pendiente && pendiente.expiresAt > Date.now() && pendiente.username;
       const mensaje = `${equipo} puesta en modo ${modo}`;
-      const modificadoPor = pendienteVigente ? pendiente.username : "";
-
-      if (pendiente) {
-        delete caboViejoModoPendiente[pendienteKey];
-      }
+      const modificadoPor =
+        consumirAccionPendiente(caboViejoModoPendiente, pendienteKey, 1) ||
+        consumirAccionPendiente(caboViejoBombaPendiente, bomba);
 
       guardarEventoSistema({
         zona: "CABO VIEJO",
