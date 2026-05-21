@@ -1071,12 +1071,12 @@ export default function App() {
 
   const widgetsInferiores = [
     {
-      title: "Cinco",
-      tankKey: "cinco",
-      level: nivelesEscalados.cinco,
-      rawLevel: niveles.cinco,
-      plc: plcStatus.cinco,
-      heartbeat: heartbeatStatus.cinco,
+      title: "Cuadrada",
+      tankKey: "cuadrada",
+      level: nivelesEscalados.cuadrada,
+      rawLevel: niveles.cuadrada,
+      plc: plcStatus.cuadrada,
+      heartbeat: heartbeatStatus.cuadrada,
     },
     {
       title: "Seis",
@@ -1103,12 +1103,12 @@ export default function App() {
       heartbeat: heartbeatStatus.pacifico,
     },
     {
-      title: "Cuadrada",
-      tankKey: "cuadrada",
-      level: nivelesEscalados.cuadrada,
-      rawLevel: niveles.cuadrada,
-      plc: plcStatus.cuadrada,
-      heartbeat: heartbeatStatus.cuadrada,
+      title: "Cinco",
+      tankKey: "cinco",
+      level: nivelesEscalados.cinco,
+      rawLevel: niveles.cinco,
+      plc: plcStatus.cinco,
+      heartbeat: heartbeatStatus.cinco,
     },
     { title: "", level: null, plc: null, empty: true },
   ];
