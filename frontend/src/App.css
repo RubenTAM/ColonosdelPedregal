@@ -1287,14 +1287,14 @@ button {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  background: linear-gradient(180deg, #8791a3 0%, #6f7889 100%);
-  color: #ffffff;
+  background: #ffd32c;
+  color: #5f4700;
   font-size: 16px;
   font-weight: 800;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 10px 16px rgba(55, 65, 81, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  box-shadow: 0 10px 16px rgba(158, 118, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
   transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1304,7 +1304,7 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: #5f4700;
   font-size: 18px;
   line-height: 1;
 }
@@ -1315,8 +1315,13 @@ button {
 
 .plant-bombas-toggle-card--off {
   background: linear-gradient(180deg, #7b8495 0%, #626b7d 100%);
+  color: #ffffff;
   box-shadow: 0 8px 14px rgba(55, 65, 81, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.plant-bombas-toggle-card--off .plant-bombas-toggle-card__icon {
+  color: #ffffff;
 }
 
 .plant-bombas-toggle-card:disabled {
