@@ -1993,7 +1993,10 @@ function PlantaCard({
               : "Solo mantenimiento o admin pueden modificar"
           }
         >
-          Apagar Bombas
+          <span className="plant-bombas-toggle-card__icon" aria-hidden="true">
+            ⏻
+          </span>
+          <span>{bombasHabilitadas ? "Apagar Bombas" : "Prender Bombas"}</span>
         </button>
       </div>
 
