@@ -395,6 +395,10 @@ export default function App() {
     setSelectedTank(null);
     setConfigForm({ min: "", max: "" });
     setPlantaBypassRequest(null);
+    setCaboViejoBypassRequests({
+      falcone: null,
+      cuadrada: null,
+    });
   };
 
   const openGraphModal = (tankKey) => {
@@ -1579,6 +1583,7 @@ export default function App() {
                     <div>Mensaje</div>
                     <div>Equipo</div>
                     <div>Fecha</div>
+                    <div>Modificado Por</div>
                   </div>
 
                   {historicoLoading && !historicoEventos.length && (
@@ -1604,6 +1609,9 @@ export default function App() {
                       </div>
                       <div className="historico-date">
                         {formatLocalEventDate(evento.fecha)}
+                      </div>
+                      <div className="historico-modified-by">
+                        {evento.modificadoPor || ""}
                       </div>
                     </div>
                   ))}

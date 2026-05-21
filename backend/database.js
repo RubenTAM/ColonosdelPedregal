@@ -40,6 +40,35 @@ function ensureHistoricoColumn(name) {
   );
 }
 
+function ensureEventosColumn(name) {
+  db.get(
+    `SELECT 1
+     FROM pragma_table_info('eventos_sistema')
+     WHERE name = ?`,
+    [name],
+    (err, row) => {
+      if (err) {
+        console.error(`Error verificando columna ${name}:`, err.message);
+        return;
+      }
+
+      if (row) return;
+
+      db.run(
+        `ALTER TABLE eventos_sistema
+         ADD COLUMN ${name} TEXT NOT NULL DEFAULT ''`,
+        (alterErr) => {
+          if (alterErr) {
+            console.error(`Error agregando columna ${name}:`, alterErr.message);
+          } else {
+            console.log(`Columna ${name} agregada a eventos_sistema`);
+          }
+        }
+      );
+    }
+  );
+}
+
 db.serialize(() => {
   db.run(`
     CREATE TABLE IF NOT EXISTS niveles_historicos_v2 (
@@ -113,9 +142,12 @@ db.serialize(() => {
       tipo TEXT NOT NULL,
       estado TEXT NOT NULL,
       mensaje TEXT NOT NULL,
+      modificado_por TEXT NOT NULL DEFAULT '',
       fecha TEXT NOT NULL
     )
   `);
+
+  ensureEventosColumn("modificado_por");
 
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_eventos_sistema_fecha

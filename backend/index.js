@@ -19,6 +19,7 @@ const PORT = 3001;
 const MQTT_URL = "mqtt://157.230.49.105:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 const HISTORICAL_TABLE = "niveles_historicos";
+const MANUAL_ACTION_WINDOW_MS = 15000;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
 const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "";
@@ -245,7 +246,9 @@ const caboViejoModoComandos = {
 };
 
 const caboViejoModoPendiente = {};
+const caboViejoBombaPendiente = {};
 const caboViejoModoTimers = {};
+const plantaAccionPendiente = {};
 
 // TOPICS PLANTA ESTADOS 
 const topicToKeyPlantaBotones = {
@@ -291,6 +294,28 @@ const plantaEquipoEventos = {
   trenA: { equipo: "Tren A", tipo: "tren" },
   trenB: { equipo: "Tren B", tipo: "tren" },
   trenC: { equipo: "Tren C", tipo: "tren" },
+  bombasHabilitadas: {
+    equipo: "Bombas",
+    tipo: "control",
+    estados: { 0: "deshabilitadas", 1: "habilitadas" },
+  },
+  bypassPlanta: {
+    equipo: "Bypass Planta",
+    tipo: "bypass",
+    estados: { 0: "desactivado", 1: "activado" },
+  },
+  bypassCuadrada: {
+    zona: "CABO VIEJO",
+    equipo: "Bypass Cuadrada",
+    tipo: "bypass",
+    estados: { 0: "desactivado", 1: "activado" },
+  },
+  bypassFalcone: {
+    zona: "CABO VIEJO",
+    equipo: "Bypass Falcone",
+    tipo: "bypass",
+    estados: { 0: "desactivado", 1: "activado" },
+  },
 };
 
 const bombaCNivelesSnapshotItems = [
@@ -326,13 +351,54 @@ function construirStatusNivelesBombaC(snapshot, config) {
     .join(" ");
 }
 
+function registrarAccionPendiente(mapa, key, username, targetState = null) {
+  if (!key || !username) return;
+
+  mapa[key] = {
+    username,
+    targetState,
+    expiresAt: Date.now() + MANUAL_ACTION_WINDOW_MS,
+  };
+}
+
+function limpiarAccionPendiente(mapa, key) {
+  delete mapa[key];
+}
+
+function consumirAccionPendiente(mapa, key, valorNuevo = null) {
+  const pendiente = mapa[key];
+  if (!pendiente) return "";
+
+  if (pendiente.expiresAt <= Date.now()) {
+    delete mapa[key];
+    return "";
+  }
+
+  if (
+    pendiente.targetState !== null &&
+    valorNuevo !== null &&
+    Number(pendiente.targetState) !== Number(valorNuevo)
+  ) {
+    return "";
+  }
+
+  delete mapa[key];
+  return pendiente.username || "";
+}
+
 async function procesarEventoPlanta(key, valorAnterior, valorNuevo) {
   const configEvento = plantaEquipoEventos[key];
 
   if (!configEvento || Number(valorAnterior) === Number(valorNuevo)) return;
 
   const estado = Number(valorNuevo) === 1 ? "encendido" : "apagado";
-  let mensaje = `${configEvento.equipo} ${estado}`;
+  const estadoMensaje = configEvento.estados?.[Number(valorNuevo)] || estado;
+  let mensaje = `${configEvento.equipo} ${estadoMensaje}`;
+  const modificadoPor = consumirAccionPendiente(
+    plantaAccionPendiente,
+    key,
+    valorNuevo
+  );
 
   if (key === "bombaC" && Number(valorNuevo) === 0) {
     const snapshotNiveles = tomarSnapshotNivelesActuales();
@@ -342,11 +408,12 @@ async function procesarEventoPlanta(key, valorAnterior, valorNuevo) {
   }
 
   guardarEventoSistema({
-    zona: "PLANTA",
+    zona: configEvento.zona || "PLANTA",
     equipo: configEvento.equipo,
     tipo: configEvento.tipo,
     estado,
     mensaje,
+    modificadoPor,
   });
 }
 
@@ -555,13 +622,21 @@ function construirHeartbeatStatus() {
   }, {});
 }
 
-function guardarEventoSistema({ zona, equipo, tipo, estado, mensaje }) {
+function guardarEventoSistema({
+  zona,
+  equipo,
+  tipo,
+  estado,
+  mensaje,
+  modificadoPor = "",
+}) {
   db.run(
     `
-    INSERT INTO eventos_sistema (zona, equipo, tipo, estado, mensaje, fecha)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO eventos_sistema
+      (zona, equipo, tipo, estado, mensaje, modificado_por, fecha)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    [zona, equipo, tipo, estado, mensaje, fechaLocalTijuana()],
+    [zona, equipo, tipo, estado, mensaje, modificadoPor || "", fechaLocalTijuana()],
     (err) => {
       if (err) {
         console.error("Error al guardar evento:", err.message);
@@ -687,6 +762,10 @@ client.on("message", (topic, message) => {
       const estado = valorNormalizado === 1 ? "encendido" : "apagado";
       const accion = valorNormalizado === 1 ? "Encendida" : "Apagada";
       const mensaje = `${equipo} ${accion}`;
+      const modificadoPor = consumirAccionPendiente(
+        caboViejoBombaPendiente,
+        bomba
+      );
 
       guardarEventoSistema({
         zona: "CABO VIEJO",
@@ -694,6 +773,7 @@ client.on("message", (topic, message) => {
         tipo: "bomba",
         estado,
         mensaje,
+        modificadoPor,
       });
     }
 
@@ -709,9 +789,8 @@ client.on("message", (topic, message) => {
       const pendiente = caboViejoModoPendiente[pendienteKey];
       const pendienteVigente =
         pendiente && pendiente.expiresAt > Date.now() && pendiente.username;
-      const mensaje = pendienteVigente
-        ? `${equipo} puesta en modo ${modo} por "${pendiente.username}"`
-        : `${equipo} puesta en modo ${modo}`;
+      const mensaje = `${equipo} puesta en modo ${modo}`;
+      const modificadoPor = pendienteVigente ? pendiente.username : "";
 
       if (pendiente) {
         delete caboViejoModoPendiente[pendienteKey];
@@ -723,6 +802,7 @@ client.on("message", (topic, message) => {
         tipo: "bomba",
         estado: campo,
         mensaje,
+        modificadoPor,
       });
     }
 
@@ -1097,16 +1177,20 @@ app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, canOperate, (req, re
   }
 
   const pendienteKey = `${bomba}.${modo}`;
+  registrarAccionPendiente(
+    caboViejoModoPendiente,
+    pendienteKey,
+    req.user.username,
+    1
+  );
+  registrarAccionPendiente(caboViejoBombaPendiente, bomba, req.user.username);
 
   client.publish(topic, "1", (err) => {
     if (err) {
+      limpiarAccionPendiente(caboViejoModoPendiente, pendienteKey);
+      limpiarAccionPendiente(caboViejoBombaPendiente, bomba);
       return res.status(500).json({ error: "No se pudo enviar al PLC" });
     }
-
-    caboViejoModoPendiente[pendienteKey] = {
-      username: req.user.username,
-      expiresAt: Date.now() + 12000,
-    };
 
     sostenerComandoBombaCaboviejo(bomba, topic);
 
@@ -1129,8 +1213,16 @@ app.post("/api/planta/bypass-toggle", verifyToken, canOperate, (req, res) => {
   const targetState = bypassActivo ? 0 : 1;
   const topic = bypassActivo ? plantaBypassTopics.reset : plantaBypassTopics.set;
 
+  registrarAccionPendiente(
+    plantaAccionPendiente,
+    "bypassPlanta",
+    req.user.username,
+    targetState
+  );
+
   client.publish(topic, "1", (err) => {
     if (err) {
+      limpiarAccionPendiente(plantaAccionPendiente, "bypassPlanta");
       return res.status(500).json({ error: "No se pudo enviar al PLC" });
     }
 
@@ -1159,8 +1251,16 @@ app.post("/api/cabo-viejo/bypass/:target/toggle", verifyToken, canOperate, (req,
   const targetState = bypassActivo ? 0 : 1;
   const topic = bypassActivo ? config.reset : config.set;
 
+  registrarAccionPendiente(
+    plantaAccionPendiente,
+    config.stateKey,
+    req.user.username,
+    targetState
+  );
+
   client.publish(topic, "1", (err) => {
     if (err) {
+      limpiarAccionPendiente(plantaAccionPendiente, config.stateKey);
       return res.status(500).json({ error: "No se pudo enviar al PLC" });
     }
 
@@ -1185,8 +1285,16 @@ app.post("/api/planta/bombas-toggle", verifyToken, canOperate, (req, res) => {
     ? plantaBombasControlTopics.reset
     : plantaBombasControlTopics.set;
 
+  registrarAccionPendiente(
+    plantaAccionPendiente,
+    "bombasHabilitadas",
+    req.user.username,
+    targetState
+  );
+
   client.publish(topic, "1", (err) => {
     if (err) {
+      limpiarAccionPendiente(plantaAccionPendiente, "bombasHabilitadas");
       return res.status(500).json({ error: "No se pudo enviar al PLC" });
     }
 
@@ -1260,7 +1368,15 @@ app.get("/api/eventos", verifyToken, (req, res) => {
 
   db.all(
     `
-    SELECT id, zona, equipo, tipo, estado, mensaje, fecha
+    SELECT
+      id,
+      zona,
+      equipo,
+      tipo,
+      estado,
+      mensaje,
+      modificado_por AS modificadoPor,
+      fecha
     FROM eventos_sistema
     ${where}
     ORDER BY fecha DESC, id DESC
