@@ -47,6 +47,8 @@ const CABO_VIEJO_BYPASS_CONFIG = {
   },
 };
 
+const ASSIGNMENT_FEEDBACK_TIMEOUT_MS = 30 * 1000;
+
 function userCanOperate(user) {
   return (
     (user?.username === "admin" && user?.role === "admin") ||
@@ -797,7 +799,7 @@ export default function App() {
             }
           : prev
       );
-    }, 10000);
+    }, ASSIGNMENT_FEEDBACK_TIMEOUT_MS);
 
     return () => clearTimeout(timeout);
   }, [pumpConfirm]);
@@ -814,7 +816,7 @@ export default function App() {
             }
           : prev
       );
-    }, 10000);
+    }, ASSIGNMENT_FEEDBACK_TIMEOUT_MS);
 
     return () => clearTimeout(timeout);
   }, [plantaBypassRequest]);
@@ -836,7 +838,7 @@ export default function App() {
                 }
               : prev
           );
-        }, 10000);
+        }, ASSIGNMENT_FEEDBACK_TIMEOUT_MS);
       })
       .filter(Boolean);
 
@@ -855,7 +857,7 @@ export default function App() {
             }
           : prev
       );
-    }, 10000);
+    }, ASSIGNMENT_FEEDBACK_TIMEOUT_MS);
 
     return () => clearTimeout(timeout);
   }, [plantaBombasRequest]);
