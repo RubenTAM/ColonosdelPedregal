@@ -369,6 +369,7 @@ export default function App() {
     falcone: null,
     cuadrada: null,
   });
+  const [plantaBombasConfirm, setPlantaBombasConfirm] = useState(null);
   const [plantaBombasRequest, setPlantaBombasRequest] = useState(null);
 
   const [configForm, setConfigForm] = useState({
@@ -424,6 +425,24 @@ export default function App() {
 
   const closePumpConfirm = () => {
     setPumpConfirm(null);
+  };
+
+  const openPlantaBombasConfirm = () => {
+    if (!userCanOperate(authUser)) return;
+
+    setPlantaBombasConfirm({
+      username: authUser.username,
+      actionLabel:
+        Number(plantaBotones?.bombasHabilitadas) === 1
+          ? "Apagar Bombas"
+          : "Prender Bombas",
+    });
+    setPlantaBombasRequest(null);
+  };
+
+  const closePlantaBombasConfirm = () => {
+    setPlantaBombasConfirm(null);
+    setPlantaBombasRequest(null);
   };
 
   const togglePlantaBypass = () => {
@@ -755,6 +774,7 @@ export default function App() {
     if (!plantaBombasRequest || plantaBombasRequest.status !== "success") return;
 
     const closeTimer = setTimeout(() => {
+      setPlantaBombasConfirm(null);
       setPlantaBombasRequest(null);
     }, 1800);
 
@@ -1371,7 +1391,7 @@ export default function App() {
                 heartbeatNow={heartbeatNow}
                 plantaBotones={plantaBotones}
                 bombasRequest={plantaBombasRequest}
-                onToggleBombas={togglePlantaBombas}
+                onToggleBombas={openPlantaBombasConfirm}
                 onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
                 canOperate={canOperate}
@@ -1388,6 +1408,8 @@ export default function App() {
                 p71a={niveles.runtime_p71a}
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
+                bypassFalconeActive={Number(plantaBotones?.bypassFalcone) === 1}
+                bypassCuadradaActive={Number(plantaBotones?.bypassCuadrada) === 1}
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
                 onOpenGraph={() => openGraphModal("cabo_viejo")}
                 onRequestMode={(pumpName, mode) =>
@@ -1775,6 +1797,18 @@ export default function App() {
           onConfirm={confirmPumpAssignment}
         />
       )}
+
+      {plantaBombasConfirm && (
+        <PumpConfirmModal
+          pumpName="PLANTA"
+          mode={plantaBombasConfirm.actionLabel}
+          username={plantaBombasConfirm.username}
+          status={plantaBombasRequest?.status || "idle"}
+          error={plantaBombasRequest?.error}
+          onCancel={closePlantaBombasConfirm}
+          onConfirm={togglePlantaBombas}
+        />
+      )}
     </div>
   );
 }
@@ -2020,9 +2054,11 @@ function CaboViejoCard({
   p71a,
   p71b,
   bombasCaboviejo,
-        onOpenConfig,
-        onOpenGraph,
-        onRequestMode,
+  bypassFalconeActive = false,
+  bypassCuadradaActive = false,
+  onOpenConfig,
+  onOpenGraph,
+  onRequestMode,
   canRequestMode = false,
   canConfigure = false,
 }) {
@@ -2043,6 +2079,24 @@ function CaboViejoCard({
         disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} rawLevel={rawLevel} />
+
+      {(bypassFalconeActive || bypassCuadradaActive) && (
+        <div className="cabo-bypass-banners">
+          {bypassFalconeActive && (
+            <div className="planta-bypass-banner">
+              <span className="planta-bypass-banner__icon">!</span>
+              <span>Bypass Falcone</span>
+            </div>
+          )}
+
+          {bypassCuadradaActive && (
+            <div className="planta-bypass-banner">
+              <span className="planta-bypass-banner__icon">!</span>
+              <span>Bypass Cuadrada</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="pump-grid pump-grid--cabo">
         <PumpBox

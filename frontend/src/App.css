@@ -1368,6 +1368,18 @@ button {
   line-height: 1;
 }
 
+.cabo-bypass-banners {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 14px;
+}
+
+.cabo-bypass-banners .planta-bypass-banner {
+  margin: 0 auto;
+}
+
 .power-button {
   position: absolute;
   top: 18px;
