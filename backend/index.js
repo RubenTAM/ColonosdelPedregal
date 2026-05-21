@@ -132,6 +132,8 @@ let plantaBotones = {
   trenB: 0,
   trenC: 0,
   bypassPlanta: 0,
+  bypassCuadrada: 0,
+  bypassFalcone: 0,
   bombasHabilitadas: 1,
 };
 
@@ -223,7 +225,7 @@ const caboViejoModoComandos = {
   p70a: {
     man: "R_Bool_13",
     off: "R_Bool_14",
-    auto: "R_Bool_12",
+    auto: "Planta_CV_P70A_Off",
   },
   p70b: {
     man: "R_Bool_16",
@@ -255,11 +257,26 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_7: "trenC",
   Planta_Bool_8: "bombasHabilitadas",
   Planta_Bool_9: "bypassPlanta",
+  Planta_Bool_30: "bypassCuadrada",
+  Planta_Bool_31: "bypassFalcone",
 };
 
 const plantaBypassTopics = {
   set: "Planta_Bypass_S",
   reset: "Planta_Bypass_R",
+};
+
+const caboViejoBypassTopics = {
+  falcone: {
+    stateKey: "bypassFalcone",
+    set: "R_Bool_24",
+    reset: "R_Bool_25",
+  },
+  cuadrada: {
+    stateKey: "bypassCuadrada",
+    set: "R_Bool_26",
+    reset: "R_Bool_27",
+  },
 };
 
 const plantaBombasControlTopics = {
@@ -1119,6 +1136,37 @@ app.post("/api/planta/bypass-toggle", verifyToken, canOperate, (req, res) => {
 
     res.json({
       ok: true,
+      topic,
+      targetState,
+      usuario: req.user.username,
+    });
+  });
+});
+
+app.post("/api/cabo-viejo/bypass/:target/toggle", verifyToken, canOperate, (req, res) => {
+  const target = String(req.params.target || "").trim().toLowerCase();
+  const config = caboViejoBypassTopics[target];
+
+  if (!config) {
+    return res.status(400).json({ error: "Bypass no valido" });
+  }
+
+  if (!client.connected) {
+    return res.status(503).json({ error: "MQTT no conectado" });
+  }
+
+  const bypassActivo = Number(plantaBotones[config.stateKey]) === 1;
+  const targetState = bypassActivo ? 0 : 1;
+  const topic = bypassActivo ? config.reset : config.set;
+
+  client.publish(topic, "1", (err) => {
+    if (err) {
+      return res.status(500).json({ error: "No se pudo enviar al PLC" });
+    }
+
+    res.json({
+      ok: true,
+      target,
       topic,
       targetState,
       usuario: req.user.username,

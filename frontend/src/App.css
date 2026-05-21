@@ -1277,6 +1277,42 @@ button {
   box-shadow: none;
 }
 
+.plant-bombas-toggle-card {
+  width: 100%;
+  max-width: 100%;
+  min-height: 50px;
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #efc14b, #dfb13c);
+  color: white;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 10px 16px rgba(223, 177, 60, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.plant-bombas-toggle-card:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.plant-bombas-toggle-card--off {
+  background: linear-gradient(180deg, #6f7787 0%, #5d6472 100%);
+  box-shadow: 0 8px 14px rgba(93, 100, 114, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.plant-bombas-toggle-card:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .primary-btn--warning {
   margin: 0;
   background: linear-gradient(180deg, #efc14b 0%, #dfb13c 100%);
@@ -2727,6 +2763,22 @@ button {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 14px;
+}
+
+.level-modal__bypass-wrap .level-modal__bypass {
+  margin-top: 0;
+}
+
+.level-modal__bypass-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.level-modal__bypass-group .level-modal__bypass-wrap {
+  margin-top: 0;
 }
 
 .level-modal__bypass--inactive {

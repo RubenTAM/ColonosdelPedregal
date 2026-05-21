@@ -36,6 +36,17 @@ const CABO_VIEJO_MODE_KEYS = {
   AUTO: "auto",
 };
 
+const CABO_VIEJO_BYPASS_CONFIG = {
+  falcone: {
+    label: "FALCONE",
+    stateKey: "bypassFalcone",
+  },
+  cuadrada: {
+    label: "CUADRADA",
+    stateKey: "bypassCuadrada",
+  },
+};
+
 function userCanOperate(user) {
   return (
     (user?.username === "admin" && user?.role === "admin") ||
@@ -320,6 +331,8 @@ export default function App() {
     trenB: 0,
     trenC: 0,
     bypassPlanta: 0,
+    bypassCuadrada: 0,
+    bypassFalcone: 0,
   });
 
   const [users, setUsers] = useState([]);
@@ -352,6 +365,10 @@ export default function App() {
   const [graphModalTank, setGraphModalTank] = useState(null);
   const [pumpConfirm, setPumpConfirm] = useState(null);
   const [plantaBypassRequest, setPlantaBypassRequest] = useState(null);
+  const [caboViejoBypassRequests, setCaboViejoBypassRequests] = useState({
+    falcone: null,
+    cuadrada: null,
+  });
   const [plantaBombasRequest, setPlantaBombasRequest] = useState(null);
 
   const [configForm, setConfigForm] = useState({
@@ -448,6 +465,52 @@ export default function App() {
               }
             : prev
         );
+      });
+  };
+
+  const toggleCaboViejoBypass = (targetKey) => {
+    if (!userCanOperate(authUser)) return;
+
+    const config = CABO_VIEJO_BYPASS_CONFIG[targetKey];
+    if (!config) return;
+
+    setCaboViejoBypassRequests((prev) => ({
+      ...prev,
+      [targetKey]: {
+        username: authUser.username,
+        status: "sending",
+        error: "",
+        targetState: Number(plantaBotones?.[config.stateKey]) === 1 ? 0 : 1,
+      },
+    }));
+
+    apiFetch(`/api/cabo-viejo/bypass/${targetKey}/toggle`, {
+      method: "POST",
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "No se pudo enviar");
+        return data;
+      })
+      .then((data) => {
+        setCaboViejoBypassRequests((prev) => ({
+          ...prev,
+          [targetKey]: {
+            ...(prev[targetKey] || {}),
+            status: "checking",
+            targetState: Number(data.targetState),
+          },
+        }));
+      })
+      .catch((err) => {
+        setCaboViejoBypassRequests((prev) => ({
+          ...prev,
+          [targetKey]: {
+            ...(prev[targetKey] || {}),
+            status: "error",
+            error: err.message,
+          },
+        }));
       });
   };
 
@@ -617,6 +680,58 @@ export default function App() {
   }, [plantaBypassRequest]);
 
   useEffect(() => {
+    const confirmTimer = setTimeout(() => {
+      setCaboViejoBypassRequests((prev) => {
+        let changed = false;
+        const next = { ...prev };
+
+        Object.entries(CABO_VIEJO_BYPASS_CONFIG).forEach(([targetKey, config]) => {
+          const request = prev[targetKey];
+          if (!request || request.status !== "checking") return;
+
+          if (
+            Number(plantaBotones?.[config.stateKey]) !==
+            Number(request.targetState)
+          ) {
+            return;
+          }
+
+          next[targetKey] = {
+            ...request,
+            status: "success",
+          };
+          changed = true;
+        });
+
+        return changed ? next : prev;
+      });
+    }, 0);
+
+    return () => clearTimeout(confirmTimer);
+  }, [caboViejoBypassRequests, plantaBotones]);
+
+  useEffect(() => {
+    const closeTimers = Object.entries(caboViejoBypassRequests)
+      .map(([targetKey, request]) => {
+        if (!request || request.status !== "success") return null;
+
+        return setTimeout(() => {
+          setCaboViejoBypassRequests((prev) =>
+            prev[targetKey]?.status === "success"
+              ? {
+                  ...prev,
+                  [targetKey]: null,
+                }
+              : prev
+          );
+        }, 1800);
+      })
+      .filter(Boolean);
+
+    return () => closeTimers.forEach((timer) => clearTimeout(timer));
+  }, [caboViejoBypassRequests]);
+
+  useEffect(() => {
     if (!plantaBombasRequest || plantaBombasRequest.status !== "checking") return;
 
     if (
@@ -679,6 +794,30 @@ export default function App() {
 
     return () => clearTimeout(timeout);
   }, [plantaBypassRequest]);
+
+  useEffect(() => {
+    const timeouts = Object.entries(caboViejoBypassRequests)
+      .map(([targetKey, request]) => {
+        if (!request || request.status !== "checking") return null;
+
+        return setTimeout(() => {
+          setCaboViejoBypassRequests((prev) =>
+            prev[targetKey]?.status === "checking"
+              ? {
+                  ...prev,
+                  [targetKey]: {
+                    ...prev[targetKey],
+                    status: "incomplete",
+                  },
+                }
+              : prev
+          );
+        }, 10000);
+      })
+      .filter(Boolean);
+
+    return () => timeouts.forEach((timeout) => clearTimeout(timeout));
+  }, [caboViejoBypassRequests]);
 
   useEffect(() => {
     if (!plantaBombasRequest || plantaBombasRequest.status !== "checking") return;
@@ -1608,6 +1747,12 @@ export default function App() {
             plantaBypassActive={Number(plantaBotones?.bypassPlanta) === 1}
             plantaBypassRequest={plantaBypassRequest}
             onTogglePlantaBypass={togglePlantaBypass}
+            caboViejoBypassActive={{
+              falcone: Number(plantaBotones?.bypassFalcone) === 1,
+              cuadrada: Number(plantaBotones?.bypassCuadrada) === 1,
+            }}
+            caboViejoBypassRequests={caboViejoBypassRequests}
+            onToggleCaboViejoBypass={toggleCaboViejoBypass}
           />
         )}
 
@@ -1722,24 +1867,6 @@ function PlantaCard({
       } ${communicationOffline ? "dashboard-card--offline" : ""}`}
       title={communicationOffline ? heartbeatMeta.label : undefined}
     >
-      <button
-        className={`power-button ${
-          bombasHabilitadas ? "" : "power-button--off"
-        }`}
-        type="button"
-        onClick={onToggleBombas}
-        disabled={communicationOffline || bombasBusy || !canOperate}
-        title={
-          canOperate
-            ? bombasHabilitadas
-              ? "Bombas habilitadas"
-              : "Bombas deshabilitadas"
-            : "Solo mantenimiento o admin pueden modificar"
-        }
-      >
-        ⏻
-      </button>
-
       {communicationOffline && (
         <div className="card-disabled-banner">SIN COMUNICACION</div>
       )}
@@ -1851,8 +1978,22 @@ function PlantaCard({
       </div>
 
       <div className="plant-reset-row">
-        <button className="plant-reset-card" disabled={cardDisabled}>
-          ⟲ RESET CONTADORES
+        <button
+          className={`plant-bombas-toggle-card ${
+            bombasHabilitadas ? "" : "plant-bombas-toggle-card--off"
+          }`}
+          type="button"
+          onClick={onToggleBombas}
+          disabled={communicationOffline || bombasBusy || !canOperate}
+          title={
+            canOperate
+              ? bombasHabilitadas
+                ? "Bombas habilitadas"
+                : "Bombas deshabilitadas"
+              : "Solo mantenimiento o admin pueden modificar"
+          }
+        >
+          Apagar Bombas
         </button>
       </div>
 
@@ -2641,6 +2782,9 @@ function LevelConfigModal({
   plantaBypassActive = false,
   plantaBypassRequest = null,
   onTogglePlantaBypass,
+  caboViejoBypassActive = {},
+  caboViejoBypassRequests = {},
+  onToggleCaboViejoBypass,
 }) {
   const niceName = {
     planta: "PLANTA",
@@ -2652,16 +2796,57 @@ function LevelConfigModal({
     pacifico: "PACIFICO",
     cuadrada: "CUADRADA",
   };
+  const getBypassStatusText = (request) =>
+    ({
+      sending: "Enviando orden al PLC...",
+      checking: "Esperando confirmacion del PLC...",
+      success: "Asignacion correcta",
+      incomplete: "Asignacion incompleta",
+      error: request?.error || "No se pudo enviar la orden",
+    }[request?.status]);
   const bypassBusy =
     plantaBypassRequest?.status === "sending" ||
     plantaBypassRequest?.status === "checking";
-  const bypassStatusText = {
-    sending: "Enviando orden al PLC...",
-    checking: "Esperando confirmacion del PLC...",
-    success: "Asignacion correcta",
-    incomplete: "Asignacion incompleta",
-    error: plantaBypassRequest?.error || "No se pudo enviar la orden",
-  }[plantaBypassRequest?.status];
+  const bypassStatusText = getBypassStatusText(plantaBypassRequest);
+
+  const renderCaboViejoBypassButton = (targetKey) => {
+    const config = CABO_VIEJO_BYPASS_CONFIG[targetKey];
+    const request = caboViejoBypassRequests?.[targetKey];
+    const active = Number(caboViejoBypassActive?.[targetKey]) === 1;
+    const busy = request?.status === "sending" || request?.status === "checking";
+    const statusText = getBypassStatusText(request);
+
+    return (
+      <div className="level-modal__bypass-wrap" key={targetKey}>
+        <button
+          type="button"
+          className={`level-modal__bypass ${
+            active ? "level-modal__bypass--active" : "level-modal__bypass--inactive"
+          }`}
+          onClick={() => onToggleCaboViejoBypass?.(targetKey)}
+          disabled={busy || !isAdmin}
+          title={
+            isAdmin
+              ? active
+                ? `Desactivar bypass ${config.label.toLowerCase()}`
+                : `Activar bypass ${config.label.toLowerCase()}`
+              : "Solo mantenimiento o admin pueden modificar el bypass"
+          }
+        >
+          BYPASS {config.label}
+        </button>
+
+        {statusText && (
+          <div
+            className={`pump-confirm-modal__status pump-confirm-modal__status--${request?.status}`}
+          >
+            {busy && <span className="pump-confirm-modal__spinner" />}
+            <span>{statusText}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderBypassButtons = () => {
     if (tankKey === "planta") {
@@ -2700,13 +2885,8 @@ function LevelConfigModal({
     if (tankKey === "cabo_viejo") {
       return (
         <div className="level-modal__bypass-group">
-          <button className="level-modal__bypass">
-            BYPASS FALCONE
-          </button>
-
-          <button className="level-modal__bypass">
-            BYPASS CUADRADA
-          </button>
+          {renderCaboViejoBypassButton("falcone")}
+          {renderCaboViejoBypassButton("cuadrada")}
         </div>
       );
     }
