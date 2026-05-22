@@ -170,6 +170,7 @@ const HISTORICAL_TANK_COLUMNS = {
 /* TOPICS MQTT - PLC STATUS / BIT DE VIDA */
 const topicToKeyPlc = {
   Planta_Real_2: "planta",
+  Planta_Real_10: "cabo_viejo",
   Falcone_Real_2: "falcone",
   Cinco_Real_2: "cinco",
   Seis_Real_2: "seis",
@@ -824,10 +825,6 @@ client.on("message", (topic, message) => {
 
     plcStatus[key] = valorPlc;
     registrarCambioHeartbeat(key, valorPlc);
-    if (topic === "Planta_Real_2") {
-      plcStatus.cabo_viejo = valorPlc;
-      registrarCambioHeartbeat("cabo_viejo", valorPlc);
-    }
     console.log(`PLC status ${key}:`, plcStatus[key]);
     return;
   }
