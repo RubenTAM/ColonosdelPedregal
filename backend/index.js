@@ -193,7 +193,7 @@ const topicToKeyRuntime = {
   Caboviejo_Real_2: "runtime_p70a",
   Caboviejo_Real_3: "runtime_p70b",
   Caboviejo_Real_4: "runtime_p71a",
-  Planta_Real_9: "runtime_p71b",
+  Caboviejo_Real_5: "runtime_p71b",
 };
 
 /* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
@@ -213,10 +213,10 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
   Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
 
-  Planta_Bool_24: { bomba: "p71b", campo: "man" },
-  Planta_Bool_25: { bomba: "p71b", campo: "off" },
-  Planta_Bool_23: { bomba: "p71b", campo: "auto" },
-  Planta_Bool_29: { bomba: "p71b", campo: "running" },
+  Caboviejo_Bool_11: { bomba: "p71b", campo: "man" },
+  Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
+  Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
+  Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
 };
 
 const caboViejoP70AModos = {
@@ -249,9 +249,9 @@ const caboViejoModoComandos = {
     auto: "cv_p71a_auto",
   },
   p71b: {
-    man: "R_Bool_22",
-    off: "R_Bool_23",
-    auto: "R_Bool_21",
+    man: "cv_p71b_man",
+    off: "cv_p71b_off",
+    auto: "cv_p71b_auto",
   },
 };
 
