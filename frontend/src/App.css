@@ -1076,6 +1076,7 @@ button {
 
 .alarm-log-body {
   min-height: 520px;
+  max-height: 520px;
   border-radius: 20px;
   background: linear-gradient(180deg, #f7f9fc 0%, #edf2f8 100%);
   border: 1px solid #dce4ef;
@@ -1084,6 +1085,7 @@ button {
   padding: 18px;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 .alarm-empty-state {
@@ -1111,12 +1113,22 @@ button {
 .alarm-item {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px 14px;
   border-radius: 14px;
   background: white;
   border: 1px solid #e0e6ef;
   margin-bottom: 10px;
+}
+
+.alarm-item__date {
+  flex: 0 0 auto;
+  color: #6f7f94;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .alarm-item--high {

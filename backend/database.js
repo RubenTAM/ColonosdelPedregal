@@ -147,6 +147,17 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS alarmas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      zona_key TEXT NOT NULL,
+      zona TEXT NOT NULL,
+      tipo TEXT NOT NULL,
+      mensaje TEXT NOT NULL,
+      fecha TEXT NOT NULL
+    )
+  `);
+
   ensureEventosColumn("modificado_por");
 
   db.run(`
@@ -157,6 +168,16 @@ db.serialize(() => {
   db.run(`
     CREATE INDEX IF NOT EXISTS idx_eventos_sistema_zona
     ON eventos_sistema(zona)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_alarmas_fecha
+    ON alarmas(fecha)
+  `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_alarmas_zona_key
+    ON alarmas(zona_key)
   `);
 
   [

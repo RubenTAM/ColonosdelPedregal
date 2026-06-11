@@ -317,6 +317,7 @@ export default function App() {
   });
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
+  const [alarmas, setAlarmas] = useState([]);
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
     p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -936,6 +937,27 @@ export default function App() {
   useEffect(() => {
     if (!authUser) return;
 
+    const cargarAlarmas = () => {
+      apiFetch("/api/alarmas?limit=20")
+        .then(async (res) => {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al cargar alarmas");
+          return data;
+        })
+        .then((data) => {
+          setAlarmas(Array.isArray(data.rows) ? data.rows : []);
+        })
+        .catch((err) => console.error("Error al cargar alarmas:", err));
+    };
+
+    cargarAlarmas();
+    const interval = setInterval(cargarAlarmas, 5000);
+    return () => clearInterval(interval);
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) return;
+
     const cargarConfig = () => {
       apiFetch("/api/level-config")
         .then(async (res) => {
@@ -1465,17 +1487,40 @@ export default function App() {
               <div className="alarm-log-panel">
                 <div className="alarm-log-header">
                   <h3>Log de alarmas</h3>
-                  <span>En espera de eventos MQTT</span>
+                  <span>
+                    {alarmas.length
+                      ? "Ultimas desconexiones detectadas"
+                      : "En espera de eventos MQTT"}
+                  </span>
                 </div>
 
                 <div className="alarm-log-body">
-                  <div className="alarm-empty-state">
-                    <div className="alarm-empty-icon">⚠️</div>
-                    <p>No hay alarmas registradas por ahora</p>
-                    <small>
-                      Aquí aparecerán alertas, fallas y eventos del sistema.
-                    </small>
-                  </div>
+                  {alarmas.length === 0 ? (
+                    <div className="alarm-empty-state">
+                      <div className="alarm-empty-icon">⚠️</div>
+                      <p>No hay alarmas registradas por ahora</p>
+                      <small>
+                        Aquí aparecerán alertas, fallas y eventos del sistema.
+                      </small>
+                    </div>
+                  ) : (
+                    alarmas.map((alarma) => (
+                      <div className="alarm-item alarm-item--high" key={alarma.id}>
+                        <div>
+                          <strong>
+                            {alarma.tipo === "desconexion"
+                              ? "Desconexion"
+                              : alarma.tipo}
+                          </strong>
+                          <p>{alarma.mensaje}</p>
+                        </div>
+
+                        <span className="alarm-item__date">
+                          {formatLocalEventDate(alarma.fecha)}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

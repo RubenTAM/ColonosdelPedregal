@@ -97,6 +97,22 @@ const heartbeatLabels = {
   cuadrada: "Cuadrada",
 };
 
+const heartbeatAlarmLabels = {
+  ...heartbeatLabels,
+  cabo_viejo: "Caboviejo",
+};
+
+const heartbeatEventZones = {
+  planta: "PLANTA",
+  cabo_viejo: "CABO VIEJO",
+  falcone: "FALCONE",
+  cinco: "CINCO",
+  seis: "SEIS",
+  marilu: "MARILU",
+  pacifico: "PACIFICO",
+  cuadrada: "CUADRADA",
+};
+
 const heartbeatAlertKeys = new Set(["planta", "cabo_viejo", "cinco"]);
 
 let ultimasAlertasWhatsApp = [];
@@ -431,6 +447,10 @@ function fechaLocalTijuana() {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 }
 
+function obtenerHoraLocal(fecha) {
+  return String(fecha || "").split(" ")[1] || fecha;
+}
+
 function obtenerLevelConfig() {
   return new Promise((resolve) => {
     db.all(
@@ -658,6 +678,49 @@ async function enviarWhatsAppAlerta(mensaje) {
   }
 }
 
+function guardarAlarmaSistema({ zonaKey, zona, tipo, mensaje, fecha }) {
+  db.run(
+    `
+    INSERT INTO alarmas
+      (zona_key, zona, tipo, mensaje, fecha)
+    VALUES (?, ?, ?, ?, ?)
+    `,
+    [zonaKey, zona, tipo, mensaje, fecha],
+    (err) => {
+      if (err) {
+        console.error("Error al guardar alarma:", err.message);
+      } else {
+        console.log("Alarma guardada:", mensaje);
+      }
+    }
+  );
+}
+
+function registrarAlarmaDesconexion(key) {
+  const fecha = fechaLocalTijuana();
+  const zona = heartbeatAlarmLabels[key] || heartbeatLabels[key] || key;
+  const mensaje = `Desconexion de "${zona}" a las ${obtenerHoraLocal(fecha)}`;
+
+  guardarAlarmaSistema({
+    zonaKey: key,
+    zona,
+    tipo: "desconexion",
+    mensaje,
+    fecha,
+  });
+
+  guardarEventoSistema({
+    zona: heartbeatEventZones[key] || String(zona).toUpperCase(),
+    equipo: zona,
+    tipo: "alarma",
+    estado: "desconexion",
+    mensaje,
+    fecha,
+  });
+
+  return mensaje;
+}
+
 function revisarHeartbeatsYAlertas() {
   const now = Date.now();
 
@@ -672,10 +735,11 @@ function revisarHeartbeatsYAlertas() {
 
     state.isOnline = isOnline;
 
-    if (isOnline || !heartbeatAlertKeys.has(key)) return;
+    if (isOnline) return;
 
-    const zona = heartbeatLabels[key] || key;
-    const mensaje = `Alerta: ${zona} se desconecto. ${fechaLocalTijuana()}`;
+    const mensaje = registrarAlarmaDesconexion(key);
+
+    if (!heartbeatAlertKeys.has(key)) return;
 
     void enviarWhatsAppAlerta(mensaje);
   });
@@ -716,6 +780,7 @@ function guardarEventoSistema({
   estado,
   mensaje,
   modificadoPor = "",
+  fecha = fechaLocalTijuana(),
 }) {
   db.run(
     `
@@ -723,7 +788,7 @@ function guardarEventoSistema({
       (zona, equipo, tipo, estado, mensaje, modificado_por, fecha)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     `,
-    [zona, equipo, tipo, estado, mensaje, modificadoPor || "", fechaLocalTijuana()],
+    [zona, equipo, tipo, estado, mensaje, modificadoPor || "", fecha],
     (err) => {
       if (err) {
         console.error("Error al guardar evento:", err.message);
@@ -1404,6 +1469,60 @@ app.get("/api/niveles", (req, res) => {
     bombasCaboviejo,
     plantaBotones,
   });
+});
+
+app.get("/api/alarmas", verifyToken, (req, res) => {
+  const start = String(req.query.start || "").trim();
+  const end = String(req.query.end || "").trim();
+  const zonaKey = String(req.query.zonaKey || "").trim().toLowerCase();
+  const rawLimit = Number(req.query.limit);
+  const limit =
+    Number.isFinite(rawLimit) && rawLimit > 0
+      ? Math.min(Math.floor(rawLimit), 300)
+      : 50;
+  const params = [];
+  const whereParts = [];
+
+  if (zonaKey && zonaKey !== "todos") {
+    whereParts.push("zona_key = ?");
+    params.push(zonaKey);
+  }
+
+  if (start) {
+    whereParts.push("fecha >= ?");
+    params.push(start);
+  }
+
+  if (end) {
+    whereParts.push("fecha <= ?");
+    params.push(end);
+  }
+
+  const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+
+  db.all(
+    `
+    SELECT
+      id,
+      zona_key AS zonaKey,
+      zona,
+      tipo,
+      mensaje,
+      fecha
+    FROM alarmas
+    ${where}
+    ORDER BY fecha DESC, id DESC
+    LIMIT ?
+    `,
+    [...params, limit],
+    (err, rows) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+
+      res.json({ rows });
+    }
+  );
 });
 
 app.get("/api/maytapi/groups", verifyToken, onlyAdmin, async (req, res) => {
