@@ -327,6 +327,8 @@ export default function App() {
     startDate: "",
     endDate: "",
   });
+  const [alarmCardView, setAlarmCardView] = useState("log");
+  const [alarmChartTank, setAlarmChartTank] = useState("cuadrada");
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
     p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -1312,6 +1314,9 @@ export default function App() {
     : alarmas.length
       ? "Ultimas desconexiones detectadas"
       : "En espera de eventos MQTT";
+  const alarmChartTankLabel =
+    TANK_OPTIONS.find((tank) => tank.key === alarmChartTank)?.label ||
+    alarmChartTank;
 
   return (
     <div className="app-shell">
@@ -1544,6 +1549,8 @@ export default function App() {
               </div>
 
               <div className="alarm-log-panel">
+                {alarmCardView === "log" ? (
+                  <div className="alarm-card-content">
                 <div className="alarm-log-header">
                   <h3>Log de alarmas</h3>
                   <span>{alarmasHeaderText}</span>
@@ -1648,6 +1655,59 @@ export default function App() {
                       </div>
                     ))
                   )}
+                </div>
+                  </div>
+                ) : (
+                  <div className="alarm-card-content alarm-card-content--chart">
+                    <div className="alarm-log-header">
+                      <h3>Grafica de niveles</h3>
+                    </div>
+
+                    <label className="alarm-chart-select-field">
+                      <select
+                        aria-label="Nivel por graficar"
+                        value={alarmChartTank}
+                        onChange={(e) => setAlarmChartTank(e.target.value)}
+                      >
+                        {TANK_OPTIONS.map((tank) => (
+                          <option key={tank.key} value={tank.key}>
+                            {tank.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div className="alarm-chart-body">
+                      <TankHistoryChart
+                        tankKey={alarmChartTank}
+                        tankLabel={alarmChartTankLabel}
+                        levelConfig={levelConfig}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="alarm-card-dots" role="tablist">
+                  <button
+                    type="button"
+                    className={`alarm-card-dot ${
+                      alarmCardView === "log" ? "alarm-card-dot--active" : ""
+                    }`}
+                    onClick={() => setAlarmCardView("log")}
+                    aria-label="Ver log de alarmas"
+                    aria-pressed={alarmCardView === "log"}
+                  />
+                  <button
+                    type="button"
+                    className={`alarm-card-dot ${
+                      alarmCardView === "chart"
+                        ? "alarm-card-dot--active"
+                        : ""
+                    }`}
+                    onClick={() => setAlarmCardView("chart")}
+                    aria-label="Ver grafica de niveles"
+                    aria-pressed={alarmCardView === "chart"}
+                  />
                 </div>
               </div>
             </div>
