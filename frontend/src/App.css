@@ -681,6 +681,10 @@ button {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.pump-grid--unavailable {
+  filter: grayscale(1);
+}
+
 .pump-box {
   width: 100%;
   min-width: 0;
@@ -692,6 +696,12 @@ button {
     0 8px 14px rgba(72, 92, 126, 0.06);
 }
 
+.pump-box--unavailable {
+  background: linear-gradient(180deg, #eef1f4 0%, #dde2e8 100%);
+  border-color: #c9d0d8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76);
+}
+
 .pump-box__name {
   margin-bottom: 4px;
   text-align: center;
@@ -700,12 +710,21 @@ button {
   color: #1f2f4b;
 }
 
+.pump-box--unavailable .pump-box__name {
+  color: #6b737f;
+}
+
 .pump-box__state {
   margin-bottom: 10px;
   text-align: center;
   font-size: 14px;
   font-weight: 800;
   color: #55657e;
+}
+
+.pump-box--unavailable .pump-box__state,
+.pump-box--unavailable .pump-box__state--alert {
+  color: #7b838d;
 }
 
 .pump-box__state--alert {
@@ -729,6 +748,14 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
+.pump-box--unavailable .mode-btn,
+.pump-box--unavailable .mode-btn--active {
+  background: linear-gradient(180deg, #d7dce2 0%, #cbd1d8 100%);
+  border-color: #bcc4ce;
+  color: #737b86;
+  box-shadow: none;
+}
+
 .mode-btn--active {
   background: linear-gradient(180deg, #334d81 0%, #334d81 100%);
   color: white;
@@ -738,6 +765,10 @@ button {
 .mode-btn:disabled {
   cursor: not-allowed;
   opacity: 0.72;
+}
+
+.pump-box--unavailable .mode-btn:disabled {
+  opacity: 1;
 }
 
 .warning-text {
@@ -780,6 +811,13 @@ button {
   font-weight: 700;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95),
     0 4px 10px rgba(60, 80, 110, 0.08);
+}
+
+.pump-box--unavailable .runtime-pill {
+  background: linear-gradient(180deg, #e9edf1 0%, #dce2e8 100%);
+  border-color: #c8d0d9;
+  color: #707984;
+  box-shadow: none;
 }
 
 .footer-pills {

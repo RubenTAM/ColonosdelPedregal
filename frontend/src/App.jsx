@@ -1416,6 +1416,7 @@ export default function App() {
                 bombasCaboviejo={bombasCaboviejo}
                 bypassFalconeActive={Number(plantaBotones?.bypassFalcone) === 1}
                 bypassCuadradaActive={Number(plantaBotones?.bypassCuadrada) === 1}
+                pumpsUnavailable
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
                 onOpenGraph={() => openGraphModal("cabo_viejo")}
                 onRequestMode={(pumpName, mode) =>
@@ -2066,6 +2067,7 @@ function CaboViejoCard({
   bombasCaboviejo,
   bypassFalconeActive = false,
   bypassCuadradaActive = false,
+  pumpsUnavailable = false,
   onOpenConfig,
   onOpenGraph,
   onRequestMode,
@@ -2108,34 +2110,50 @@ function CaboViejoCard({
         </div>
       )}
 
-      <div className="pump-grid pump-grid--cabo">
+      <div
+        className={`pump-grid pump-grid--cabo ${
+          pumpsUnavailable ? "pump-grid--unavailable" : ""
+        }`}
+      >
         <PumpBox
           name="P70A"
           runtime={p70a}
           modes={bombasCaboviejo.p70a}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
+          canRequestMode={
+            canRequestMode && !communicationOffline && !pumpsUnavailable
+          }
+          unavailable={pumpsUnavailable}
         />
         <PumpBox
           name="P70B"
           runtime={p70b}
           modes={bombasCaboviejo.p70b}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
+          canRequestMode={
+            canRequestMode && !communicationOffline && !pumpsUnavailable
+          }
+          unavailable={pumpsUnavailable}
         />
         <PumpBox
           name="P71A"
           runtime={p71a}
           modes={bombasCaboviejo.p71a}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
+          canRequestMode={
+            canRequestMode && !communicationOffline && !pumpsUnavailable
+          }
+          unavailable={pumpsUnavailable}
         />
         <PumpBox
           name="P71B"
           runtime={p71b}
           modes={bombasCaboviejo.p71b}
           onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
+          canRequestMode={
+            canRequestMode && !communicationOffline && !pumpsUnavailable
+          }
+          unavailable={pumpsUnavailable}
         />
       </div>
 
@@ -2335,6 +2353,7 @@ function PumpBox({
   alert = false,
   onRequestMode,
   canRequestMode = false,
+  unavailable = false,
 }) {
   const manActivo = Number(modes.man) === 1;
   const offActivo = Number(modes.off) === 1;
@@ -2357,11 +2376,13 @@ function PumpBox({
       : {
           type: "button",
           disabled: true,
-          title: "Solo mantenimiento o admin pueden modificar esta bomba",
+          title: unavailable
+            ? "Bombas temporalmente no disponibles"
+            : "Solo mantenimiento o admin pueden modificar esta bomba",
         };
 
   return (
-    <div className="pump-box">
+    <div className={`pump-box ${unavailable ? "pump-box--unavailable" : ""}`}>
       <div className="pump-box__name">{name}</div>
 
       <div
