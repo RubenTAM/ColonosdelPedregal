@@ -2293,10 +2293,7 @@ function CaboViejoCard({
           runtime={p71a}
           modes={bombasCaboviejo.p71a}
           onRequestMode={onRequestMode}
-          canRequestMode={
-            canRequestMode && !communicationOffline && !pumpsUnavailable
-          }
-          unavailable={pumpsUnavailable}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
         <PumpBox
           name="P71B"

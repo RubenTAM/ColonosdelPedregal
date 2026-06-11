@@ -192,7 +192,7 @@ const topicToKeyPlc = {
 const topicToKeyRuntime = {
   Caboviejo_Real_2: "runtime_p70a",
   Caboviejo_Real_3: "runtime_p70b",
-  Planta_Real_8: "runtime_p71a",
+  Caboviejo_Real_4: "runtime_p71a",
   Planta_Real_9: "runtime_p71b",
 };
 
@@ -208,10 +208,10 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
   Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
 
-  Planta_Bool_21: { bomba: "p71a", campo: "man" },
-  Planta_Bool_22: { bomba: "p71a", campo: "off" },
-  Planta_Bool_20: { bomba: "p71a", campo: "auto" },
-  Planta_Bool_28: { bomba: "p71a", campo: "running" },
+  Caboviejo_Bool_8: { bomba: "p71a", campo: "man" },
+  Caboviejo_Bool_9: { bomba: "p71a", campo: "off" },
+  Caboviejo_Bool_10: { bomba: "p71a", campo: "auto" },
+  Caboviejo_Bool_16: { bomba: "p71a", campo: "running" },
 
   Planta_Bool_24: { bomba: "p71b", campo: "man" },
   Planta_Bool_25: { bomba: "p71b", campo: "off" },
@@ -244,9 +244,9 @@ const caboViejoModoComandos = {
     auto: "cv_p70b_auto",
   },
   p71a: {
-    man: "R_Bool_19",
-    off: "R_Bool_20",
-    auto: "R_Bool_18",
+    man: "cv_p71a_man",
+    off: "cv_p71a_off",
+    auto: "cv_p71a_auto",
   },
   p71b: {
     man: "R_Bool_22",
