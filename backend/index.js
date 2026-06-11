@@ -254,8 +254,8 @@ const topicToKeyPlantaBotones = {
   Planta_Bool_7: "trenC",
   Planta_Bool_8: "bombasHabilitadas",
   Planta_Bool_9: "bypassPlanta",
-  Planta_Bool_30: "bypassCuadrada",
-  Planta_Bool_31: "bypassFalcone",
+  Caboviejo_Bool_22: "bypassCuadrada",
+  Caboviejo_Bool_23: "bypassFalcone",
 };
 
 const plantaBypassTopics = {
@@ -266,13 +266,13 @@ const plantaBypassTopics = {
 const caboViejoBypassTopics = {
   falcone: {
     stateKey: "bypassFalcone",
-    set: "R_Bool_24",
-    reset: "R_Bool_25",
+    set: "cv_bypass_falcone_s",
+    reset: "cv_bypass_falcone_r",
   },
   cuadrada: {
     stateKey: "bypassCuadrada",
-    set: "R_Bool_26",
-    reset: "R_Bool_27",
+    set: "cv_bypass_cuadrada_s",
+    reset: "cv_bypass_cuadrada_r",
   },
 };
 
