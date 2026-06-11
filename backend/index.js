@@ -174,7 +174,7 @@ const topicToKeyPlc = {
 
 /* TOPICS MQTT - RUNTIME CABO VIEJO */
 const topicToKeyRuntime = {
-  Planta_Real_6: "runtime_p70a",
+  Caboviejo_Real_2: "runtime_p70a",
   Planta_Real_7: "runtime_p70b",
   Planta_Real_8: "runtime_p71a",
   Planta_Real_9: "runtime_p71b",
@@ -182,10 +182,10 @@ const topicToKeyRuntime = {
 
 /* TOPICS MQTT - BOTONES Y ESTADO CABO VIEJO */
 const topicToKeyBombasCaboviejo = {
-  Planta_Bool_15: { bomba: "p70a", campo: "man" },
-  Planta_Bool_16: { bomba: "p70a", campo: "off" },
-  Planta_Bool_14: { bomba: "p70a", campo: "auto" },
-  Planta_Bool_26: { bomba: "p70a", campo: "running" },
+  Caboviejo_Bool_2: { bomba: "p70a", campo: "man" },
+  Caboviejo_Bool_3: { bomba: "p70a", campo: "off" },
+  Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
+  Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
 
   Planta_Bool_18: { bomba: "p70b", campo: "man" },
   Planta_Bool_19: { bomba: "p70b", campo: "off" },

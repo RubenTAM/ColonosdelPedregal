@@ -2110,20 +2110,13 @@ function CaboViejoCard({
         </div>
       )}
 
-      <div
-        className={`pump-grid pump-grid--cabo ${
-          pumpsUnavailable ? "pump-grid--unavailable" : ""
-        }`}
-      >
+      <div className="pump-grid pump-grid--cabo">
         <PumpBox
           name="P70A"
           runtime={p70a}
           modes={bombasCaboviejo.p70a}
           onRequestMode={onRequestMode}
-          canRequestMode={
-            canRequestMode && !communicationOffline && !pumpsUnavailable
-          }
-          unavailable={pumpsUnavailable}
+          canRequestMode={canRequestMode && !communicationOffline}
         />
         <PumpBox
           name="P70B"
