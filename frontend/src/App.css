@@ -863,7 +863,8 @@ button {
 .alarm-log-panel {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .mini-widgets-grid {
@@ -1151,7 +1152,7 @@ button {
 .alarm-log-body {
   flex: 1;
   min-height: 360px;
-  max-height: none;
+  max-height: 480px;
   border-radius: 20px;
   background: linear-gradient(180deg, #f7f9fc 0%, #edf2f8 100%);
   border: 1px solid #dce4ef;
@@ -1161,6 +1162,22 @@ button {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.alarm-log-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.alarm-log-body::-webkit-scrollbar-track {
+  background: rgba(216, 225, 237, 0.55);
+  border-radius: 999px;
+}
+
+.alarm-log-body::-webkit-scrollbar-thumb {
+  background: #a9b8cf;
+  border-radius: 999px;
 }
 
 .alarm-empty-state {
