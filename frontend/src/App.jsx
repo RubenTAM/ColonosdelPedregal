@@ -1404,8 +1404,8 @@ export default function App() {
               />
 
               <CaboViejoCard
-                level={nivelesEscalados.cabo_viejo_tanques}
-                rawLevel={niveles.cabo_viejo_tanques}
+                level={nivelesEscalados.cabo_viejo}
+                rawLevel={niveles.cabo_viejo}
                 plc={plcStatus.cabo_viejo}
                 heartbeat={heartbeatStatus.cabo_viejo}
                 heartbeatNow={heartbeatNow}

@@ -3,7 +3,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mqtt = require("mqtt");
-const twilio = require("twilio");
 const db = require("./database");
 const usersDb = require("./usersDatabase");
 const bcrypt = require("bcryptjs");
@@ -20,10 +19,18 @@ const MQTT_URL = "mqtt://157.230.49.105:1883";
 const JWT_SECRET = "TIA_PORTAL_COLONOS_2026_SECRET";
 const HISTORICAL_TABLE = "niveles_historicos";
 const MANUAL_ACTION_WINDOW_MS = 30 * 1000;
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || "";
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || "";
-const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM || "";
-const TWILIO_WHATSAPP_TO = (process.env.TWILIO_WHATSAPP_TO || "")
+const MAYTAPI_BASE_URL =
+  process.env.MAYTAPI_BASE_URL || "https://api.maytapi.com/api";
+const MAYTAPI_PRODUCT_ID = process.env.MAYTAPI_PRODUCT_ID || "";
+const MAYTAPI_PHONE_ID = process.env.MAYTAPI_PHONE_ID || "";
+const MAYTAPI_API_TOKEN =
+  process.env.MAYTAPI_API_TOKEN || process.env.MAYTAPI_TOKEN || "";
+const MAYTAPI_GROUP_NAME =
+  process.env.MAYTAPI_GROUP_NAME || "Alertas Colonos del Pedregal";
+let maytapiGroupId = process.env.MAYTAPI_GROUP_ID || "";
+const MAYTAPI_GROUP_PARTICIPANTS = (
+  process.env.MAYTAPI_GROUP_PARTICIPANTS || ""
+)
   .split(",")
   .map((value) => value.trim())
   .filter(Boolean);
@@ -90,21 +97,7 @@ const heartbeatLabels = {
   cuadrada: "Cuadrada",
 };
 
-const whatsappLevelItems = [
-  { key: "planta", configKey: "planta", label: "Planta" },
-  { key: "cabo_viejo_tanques", configKey: "cabo_viejo", label: "Cabo Viejo" },
-  { key: "falcone", configKey: "falcone", label: "Falcone" },
-  { key: "cinco", configKey: "cinco", label: "Cinco" },
-  { key: "seis", configKey: "seis", label: "Seis" },
-  { key: "marilu", configKey: "marilu", label: "Marilu" },
-  { key: "pacifico", configKey: "pacifico", label: "Pacifico" },
-  { key: "cuadrada", configKey: "cuadrada", label: "Cuadrada" },
-];
-
-const twilioClient =
-  TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN
-    ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    : null;
+const heartbeatAlertKeys = new Set(["planta", "cabo_viejo", "cinco"]);
 
 let ultimasAlertasWhatsApp = [];
 
@@ -170,7 +163,7 @@ const HISTORICAL_TANK_COLUMNS = {
 /* TOPICS MQTT - PLC STATUS / BIT DE VIDA */
 const topicToKeyPlc = {
   Planta_Real_2: "planta",
-  Planta_Real_10: "cabo_viejo",
+  Caboviejo_Real_6: "cabo_viejo",
   Falcone_Real_2: "falcone",
   Cinco_Real_2: "cinco",
   Seis_Real_2: "seis",
@@ -489,27 +482,117 @@ function formatearNumero(value, decimals = 1) {
   return number.toFixed(decimals);
 }
 
-async function construirMensajeNivelesWhatsApp() {
-  const config = await obtenerLevelConfig();
-  const lines = [`Niveles actuales (${fechaLocalTijuana()}):`];
+function obtenerFaltantesMaytapi(requireGroup = true) {
+  const faltantes = [];
 
-  whatsappLevelItems.forEach(({ key, configKey, label }) => {
-    const value = Number(niveles[key]) || 0;
-    const tankConfig = config[configKey] || DEFAULT_LEVEL_CONFIG[configKey];
-    const percentage = escalarNivel(value, tankConfig.min, tankConfig.max);
+  if (!MAYTAPI_PRODUCT_ID) faltantes.push("MAYTAPI_PRODUCT_ID");
+  if (!MAYTAPI_PHONE_ID) faltantes.push("MAYTAPI_PHONE_ID");
+  if (!MAYTAPI_API_TOKEN) faltantes.push("MAYTAPI_API_TOKEN");
+  if (requireGroup && !maytapiGroupId) faltantes.push("MAYTAPI_GROUP_ID");
 
-    lines.push(`${label}: ${formatearNumero(percentage, 0)}%`);
-  });
-
-  return lines.join("\n");
+  return faltantes;
 }
 
-function normalizarComandoWhatsApp(value) {
-  return String(value || "")
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
+function maytapiConfigurado(requireGroup = true) {
+  return obtenerFaltantesMaytapi(requireGroup).length === 0;
+}
+
+function construirMaytapiPath(path) {
+  const base = MAYTAPI_BASE_URL.replace(/\/+$/, "");
+  const productId = encodeURIComponent(MAYTAPI_PRODUCT_ID);
+
+  return `${base}/${productId}${path}`;
+}
+
+async function enviarMaytapi(path, options = {}) {
+  const response = await fetch(construirMaytapiPath(path), {
+    method: options.method || "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-maytapi-key": MAYTAPI_API_TOKEN,
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  const responseText = await response.text();
+  let data = null;
+
+  if (responseText) {
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      data = { raw: responseText };
+    }
+  }
+
+  if (!response.ok || data?.success === false) {
+    const message =
+      data?.message ||
+      data?.error ||
+      data?.raw ||
+      `Maytapi respondio con HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  return data || {};
+}
+
+function resolverGrupoMaytapiId(data) {
+  return (
+    data?.data?.id ||
+    data?.data?.conversation_id ||
+    data?.data?.chatId ||
+    data?.id ||
+    data?.conversation_id ||
+    data?.chatId ||
+    ""
+  );
+}
+
+async function crearGrupoMaytapi({ name, participants }) {
+  const faltantes = obtenerFaltantesMaytapi(false);
+
+  if (faltantes.length > 0) {
+    throw new Error(`Maytapi no configurado: ${faltantes.join(", ")}`);
+  }
+
+  const participantes = Array.isArray(participants)
+    ? participants.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+
+  if (participantes.length === 0) {
+    throw new Error("Debes indicar participantes para crear el grupo");
+  }
+
+  const phoneId = encodeURIComponent(MAYTAPI_PHONE_ID);
+  const data = await enviarMaytapi(`/${phoneId}/createGroup`, {
+    method: "POST",
+    body: {
+      subject: name || MAYTAPI_GROUP_NAME,
+      participants: participantes,
+    },
+  });
+  const groupId = resolverGrupoMaytapiId(data);
+
+  if (groupId) {
+    maytapiGroupId = groupId;
+  }
+
+  return {
+    ...data,
+    groupId,
+  };
+}
+
+async function listarGruposMaytapi() {
+  const faltantes = obtenerFaltantesMaytapi(false);
+
+  if (faltantes.length > 0) {
+    throw new Error(`Maytapi no configurado: ${faltantes.join(", ")}`);
+  }
+
+  const phoneId = encodeURIComponent(MAYTAPI_PHONE_ID);
+  return enviarMaytapi(`/${phoneId}/getGroups?sort=true&invite=true`);
 }
 
 function registrarCambioHeartbeat(key, value) {
@@ -529,47 +612,50 @@ function registrarCambioHeartbeat(key, value) {
 }
 
 async function enviarWhatsAppAlerta(mensaje) {
-  if (!twilioClient || !TWILIO_WHATSAPP_FROM || TWILIO_WHATSAPP_TO.length === 0) {
-    console.log("Twilio no configurado. Alerta omitida:", mensaje);
+  const faltantes = obtenerFaltantesMaytapi(true);
+
+  if (faltantes.length > 0) {
+    console.log("Maytapi no configurado. Alerta omitida:", mensaje);
     registrarIntentoWhatsApp({
       ok: false,
       mensaje,
-      error: "Twilio no configurado",
-      destinos: TWILIO_WHATSAPP_TO.length,
+      proveedor: "maytapi",
+      error: `Maytapi no configurado: ${faltantes.join(", ")}`,
     });
     return;
   }
 
-  await Promise.all(
-    TWILIO_WHATSAPP_TO.map(async (to) => {
-      try {
-        const result = await twilioClient.messages.create({
-          from: TWILIO_WHATSAPP_FROM,
-          to,
-          body: mensaje,
-        });
-        console.log(
-          `WhatsApp enviado a ${to}: ${mensaje} (${result.sid}, ${result.status})`
-        );
-        registrarIntentoWhatsApp({
-          ok: true,
-          mensaje,
-          to,
-          sid: result.sid,
-          status: result.status,
-        });
-      } catch (error) {
-        console.error(`Error enviando WhatsApp a ${to}:`, error.message);
-        registrarIntentoWhatsApp({
-          ok: false,
-          mensaje,
-          to,
-          error: error.message,
-          code: error.code,
-        });
-      }
-    })
-  );
+  try {
+    const phoneId = encodeURIComponent(MAYTAPI_PHONE_ID);
+    const result = await enviarMaytapi(`/${phoneId}/sendMessage`, {
+      method: "POST",
+      body: {
+        to_number: maytapiGroupId,
+        type: "text",
+        message: mensaje,
+        skip_filter: true,
+      },
+    });
+
+    console.log(`WhatsApp enviado al grupo ${maytapiGroupId}: ${mensaje}`);
+    registrarIntentoWhatsApp({
+      ok: true,
+      mensaje,
+      proveedor: "maytapi",
+      groupId: maytapiGroupId,
+      chatId: result?.data?.chatId,
+      msgId: result?.data?.msgId,
+    });
+  } catch (error) {
+    console.error("Error enviando WhatsApp por Maytapi:", error.message);
+    registrarIntentoWhatsApp({
+      ok: false,
+      mensaje,
+      proveedor: "maytapi",
+      groupId: maytapiGroupId,
+      error: error.message,
+    });
+  }
 }
 
 function revisarHeartbeatsYAlertas() {
@@ -586,10 +672,10 @@ function revisarHeartbeatsYAlertas() {
 
     state.isOnline = isOnline;
 
+    if (isOnline || !heartbeatAlertKeys.has(key)) return;
+
     const zona = heartbeatLabels[key] || key;
-    const mensaje = isOnline
-      ? `Recuperacion de Conexion con "${zona}" 😄🟢`
-      : `Perdida de Conexion con "${zona}"💀🔴`;
+    const mensaje = `Alerta: ${zona} se desconecto. ${fechaLocalTijuana()}`;
 
     void enviarWhatsAppAlerta(mensaje);
   });
@@ -1308,30 +1394,50 @@ app.get("/api/niveles", (req, res) => {
     plcStatus,
     heartbeatStatus: construirHeartbeatStatus(),
     alertasWhatsApp: ultimasAlertasWhatsApp,
-    twilio: {
-      configured:
-        Boolean(twilioClient) &&
-        Boolean(TWILIO_WHATSAPP_FROM) &&
-        TWILIO_WHATSAPP_TO.length > 0,
-      destinos: TWILIO_WHATSAPP_TO.length,
+    maytapi: {
+      configured: maytapiConfigurado(true),
+      faltantes: obtenerFaltantesMaytapi(true),
+      groupId: maytapiGroupId,
+      groupName: MAYTAPI_GROUP_NAME,
+      alertKeys: Array.from(heartbeatAlertKeys),
     },
     bombasCaboviejo,
     plantaBotones,
   });
 });
 
-app.post("/api/twilio/whatsapp", async (req, res) => {
-  const incomingText = normalizarComandoWhatsApp(req.body.Body);
-  const twiml = new twilio.twiml.MessagingResponse();
-
-  if (incomingText === "niveles" || incomingText === "nivel") {
-    const mensaje = await construirMensajeNivelesWhatsApp();
-    twiml.message(mensaje);
-  } else {
-    twiml.message('Comando no reconocido. Envia "Niveles" para consultar los niveles actuales.');
+app.get("/api/maytapi/groups", verifyToken, onlyAdmin, async (req, res) => {
+  try {
+    const data = await listarGruposMaytapi();
+    res.json({
+      ok: true,
+      configured: maytapiConfigurado(true),
+      currentGroupId: maytapiGroupId,
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
   }
+});
 
-  res.type("text/xml").send(twiml.toString());
+app.post("/api/maytapi/group", verifyToken, onlyAdmin, async (req, res) => {
+  try {
+    const participantes = Array.isArray(req.body.participants)
+      ? req.body.participants
+      : MAYTAPI_GROUP_PARTICIPANTS;
+    const data = await crearGrupoMaytapi({
+      name: req.body.name || MAYTAPI_GROUP_NAME,
+      participants: participantes,
+    });
+
+    res.json({
+      ok: true,
+      groupId: maytapiGroupId,
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: error.message });
+  }
 });
 
 app.get("/api/eventos", verifyToken, (req, res) => {
