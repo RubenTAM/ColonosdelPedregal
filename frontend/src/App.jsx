@@ -318,6 +318,15 @@ export default function App() {
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
   const [alarmas, setAlarmas] = useState([]);
+  const [alarmasLoading, setAlarmasLoading] = useState(false);
+  const [alarmasFiltro, setAlarmasFiltro] = useState({
+    startDate: "",
+    endDate: "",
+  });
+  const [alarmasFiltroAplicado, setAlarmasFiltroAplicado] = useState({
+    startDate: "",
+    endDate: "",
+  });
 
   const [bombasCaboviejo, setBombasCaboviejo] = useState({
     p70a: { man: 0, off: 0, auto: 1, running: 0 },
@@ -938,7 +947,26 @@ export default function App() {
     if (!authUser) return;
 
     const cargarAlarmas = () => {
-      apiFetch("/api/alarmas?limit=20")
+      const params = new URLSearchParams();
+      const start = buildLocalDateTime(
+        alarmasFiltroAplicado.startDate,
+        "",
+        "00:00"
+      );
+      const end = buildLocalDateTime(
+        alarmasFiltroAplicado.endDate,
+        "",
+        "23:59"
+      );
+      const tieneFiltro = Boolean(start || end);
+
+      params.set("limit", tieneFiltro ? "300" : "20");
+      if (start) params.set("start", start);
+      if (end) params.set("end", end);
+
+      setAlarmasLoading(true);
+
+      apiFetch(`/api/alarmas?${params.toString()}`)
         .then(async (res) => {
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "Error al cargar alarmas");
@@ -947,13 +975,14 @@ export default function App() {
         .then((data) => {
           setAlarmas(Array.isArray(data.rows) ? data.rows : []);
         })
-        .catch((err) => console.error("Error al cargar alarmas:", err));
+        .catch((err) => console.error("Error al cargar alarmas:", err))
+        .finally(() => setAlarmasLoading(false));
     };
 
     cargarAlarmas();
     const interval = setInterval(cargarAlarmas, 5000);
     return () => clearInterval(interval);
-  }, [authUser]);
+  }, [authUser, alarmasFiltroAplicado]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -1232,6 +1261,28 @@ export default function App() {
       .catch((err) => setUserMessage(err.message));
   };
 
+  const updateAlarmasFiltro = (field, value) => {
+    setAlarmasFiltro((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleApplyAlarmasFiltro = (e) => {
+    e.preventDefault();
+    setAlarmasFiltroAplicado(alarmasFiltro);
+  };
+
+  const handleClearAlarmasFiltro = () => {
+    const filtroVacio = {
+      startDate: "",
+      endDate: "",
+    };
+
+    setAlarmasFiltro(filtroVacio);
+    setAlarmasFiltroAplicado(filtroVacio);
+  };
+
   if (!authChecked) {
     return (
       <div className="login-page">
@@ -1253,6 +1304,14 @@ export default function App() {
 
   const isAdmin = authUser.username === "admin" && authUser.role === "admin";
   const canOperate = userCanOperate(authUser);
+  const alarmasFiltroActivo = Boolean(
+    alarmasFiltroAplicado.startDate || alarmasFiltroAplicado.endDate
+  );
+  const alarmasHeaderText = alarmasFiltroActivo
+    ? "Desconexiones del rango seleccionado"
+    : alarmas.length
+      ? "Ultimas desconexiones detectadas"
+      : "En espera de eventos MQTT";
 
   return (
     <div className="app-shell">
@@ -1487,15 +1546,74 @@ export default function App() {
               <div className="alarm-log-panel">
                 <div className="alarm-log-header">
                   <h3>Log de alarmas</h3>
-                  <span>
-                    {alarmas.length
-                      ? "Ultimas desconexiones detectadas"
-                      : "En espera de eventos MQTT"}
-                  </span>
+                  <span>{alarmasHeaderText}</span>
                 </div>
 
+                <form
+                  className="alarm-filter-form"
+                  onSubmit={handleApplyAlarmasFiltro}
+                >
+                  <label className="alarm-filter-field">
+                    <span>Desde</span>
+                    <input
+                      type="date"
+                      value={alarmasFiltro.startDate}
+                      max={alarmasFiltro.endDate || undefined}
+                      onChange={(e) =>
+                        updateAlarmasFiltro("startDate", e.target.value)
+                      }
+                      onInput={(e) =>
+                        updateAlarmasFiltro("startDate", e.target.value)
+                      }
+                    />
+                  </label>
+
+                  <label className="alarm-filter-field">
+                    <span>Hasta</span>
+                    <input
+                      type="date"
+                      value={alarmasFiltro.endDate}
+                      min={alarmasFiltro.startDate || undefined}
+                      onChange={(e) =>
+                        updateAlarmasFiltro("endDate", e.target.value)
+                      }
+                      onInput={(e) =>
+                        updateAlarmasFiltro("endDate", e.target.value)
+                      }
+                    />
+                  </label>
+
+                  <div className="alarm-filter-actions">
+                    <button
+                      className="alarm-filter-btn alarm-filter-btn--primary"
+                      type="submit"
+                      disabled={alarmasLoading}
+                    >
+                      Buscar
+                    </button>
+                    <button
+                      className="alarm-filter-btn"
+                      type="button"
+                      onClick={handleClearAlarmasFiltro}
+                      disabled={
+                        !alarmasFiltro.startDate &&
+                        !alarmasFiltro.endDate &&
+                        !alarmasFiltroActivo
+                      }
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </form>
+
                 <div className="alarm-log-body">
-                  {alarmas.length === 0 ? (
+                  {alarmasLoading && alarmas.length === 0 ? (
+                    <div className="alarm-empty-state">
+                      <div className="alarm-empty-icon">!</div>
+                      <p>Cargando alarmas...</p>
+                      <small>Consultando desconexiones guardadas.</small>
+                    </div>
+                  ) : alarmas.length === 0 ? (
                     <div className="alarm-empty-state">
                       <div className="alarm-empty-icon">⚠️</div>
                       <p>No hay alarmas registradas por ahora</p>
