@@ -1623,11 +1623,20 @@ export default function App() {
                     </div>
                   ) : (
                     alarmas.map((alarma) => (
-                      <div className="alarm-item alarm-item--high" key={alarma.id}>
+                      <div
+                        className={`alarm-item ${
+                          alarma.tipo === "conexion"
+                            ? "alarm-item--success"
+                            : "alarm-item--high"
+                        }`}
+                        key={alarma.id}
+                      >
                         <div>
                           <strong>
                             {alarma.tipo === "desconexion"
                               ? "Desconexion"
+                              : alarma.tipo === "conexion"
+                                ? "Conexion"
                               : alarma.tipo}
                           </strong>
                           <p>{alarma.mensaje}</p>

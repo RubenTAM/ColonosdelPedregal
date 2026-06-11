@@ -721,6 +721,31 @@ function registrarAlarmaDesconexion(key) {
   return mensaje;
 }
 
+function registrarAlarmaConexion(key) {
+  const fecha = fechaLocalTijuana();
+  const zona = heartbeatAlarmLabels[key] || heartbeatLabels[key] || key;
+  const mensaje = `Conexion de "${zona}" a las ${obtenerHoraLocal(fecha)}`;
+
+  guardarAlarmaSistema({
+    zonaKey: key,
+    zona,
+    tipo: "conexion",
+    mensaje,
+    fecha,
+  });
+
+  guardarEventoSistema({
+    zona: heartbeatEventZones[key] || String(zona).toUpperCase(),
+    equipo: zona,
+    tipo: "alarma",
+    estado: "conexion",
+    mensaje,
+    fecha,
+  });
+
+  return mensaje;
+}
+
 function revisarHeartbeatsYAlertas() {
   const now = Date.now();
 
@@ -735,7 +760,10 @@ function revisarHeartbeatsYAlertas() {
 
     state.isOnline = isOnline;
 
-    if (isOnline) return;
+    if (isOnline) {
+      registrarAlarmaConexion(key);
+      return;
+    }
 
     const mensaje = registrarAlarmaDesconexion(key);
 

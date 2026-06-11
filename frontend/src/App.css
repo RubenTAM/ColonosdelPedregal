@@ -1210,6 +1210,14 @@ button {
   border-left: 4px solid var(--danger);
 }
 
+.alarm-item--success {
+  border-left: 4px solid #42a36f;
+}
+
+.alarm-item--success strong {
+  color: #23764d;
+}
+
 .alarm-item strong {
   display: block;
   margin-bottom: 2px;
