@@ -175,7 +175,7 @@ const topicToKeyPlc = {
 /* TOPICS MQTT - RUNTIME CABO VIEJO */
 const topicToKeyRuntime = {
   Caboviejo_Real_2: "runtime_p70a",
-  Planta_Real_7: "runtime_p70b",
+  Caboviejo_Real_3: "runtime_p70b",
   Planta_Real_8: "runtime_p71a",
   Planta_Real_9: "runtime_p71b",
 };
@@ -187,10 +187,10 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_4: { bomba: "p70a", campo: "auto" },
   Caboviejo_Bool_14: { bomba: "p70a", campo: "running" },
 
-  Planta_Bool_18: { bomba: "p70b", campo: "man" },
-  Planta_Bool_19: { bomba: "p70b", campo: "off" },
-  Planta_Bool_17: { bomba: "p70b", campo: "auto" },
-  Planta_Bool_27: { bomba: "p70b", campo: "running" },
+  Caboviejo_Bool_5: { bomba: "p70b", campo: "man" },
+  Caboviejo_Bool_6: { bomba: "p70b", campo: "off" },
+  Caboviejo_Bool_7: { bomba: "p70b", campo: "auto" },
+  Caboviejo_Bool_15: { bomba: "p70b", campo: "running" },
 
   Planta_Bool_21: { bomba: "p71a", campo: "man" },
   Planta_Bool_22: { bomba: "p71a", campo: "off" },
@@ -223,9 +223,9 @@ const caboViejoModoComandos = {
     auto: "cv_p70a_auto",
   },
   p70b: {
-    man: "R_Bool_16",
-    off: "R_Bool_17",
-    auto: "R_Bool_15",
+    man: "cv_p70b_man",
+    off: "cv_p70b_off",
+    auto: "cv_p70b_auto",
   },
   p71a: {
     man: "R_Bool_19",
