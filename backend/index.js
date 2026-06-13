@@ -65,12 +65,12 @@ let niveles = {
 
 const nivelesRedundantes = {
   falcone: {
-    broker: { value: 0, hasValue: false },
-    local: { value: 0, hasValue: false },
+    broker: { value: 0, hasValue: false, updatedAt: 0 },
+    local: { value: 0, hasValue: false, updatedAt: 0 },
   },
   cuadrada: {
-    broker: { value: 0, hasValue: false },
-    local: { value: 0, hasValue: false },
+    broker: { value: 0, hasValue: false, updatedAt: 0 },
+    local: { value: 0, hasValue: false, updatedAt: 0 },
   },
 };
 
@@ -680,11 +680,14 @@ function actualizarNivelRedundante(key) {
 
   const preferredSource = resolverFuenteNivel(key);
   const fallbackSource = preferredSource === "broker" ? "local" : "broker";
-  const source = redundant[preferredSource].hasValue
+  const preferred = redundant[preferredSource];
+  const fallback = redundant[fallbackSource];
+  const source = preferred.hasValue
     ? preferredSource
-    : redundant[fallbackSource].hasValue
+    : fallback.hasValue
       ? fallbackSource
       : preferredSource;
+
   nivelSourceStatus[key] = source;
   niveles[key] = redundant[source].value;
 }
@@ -1071,6 +1074,7 @@ client.on("message", (topic, message) => {
       nivelesRedundantes[key][source] = {
         value: valor,
         hasValue: true,
+        updatedAt: Date.now(),
       };
       actualizarNivelRedundante(key);
       console.log(`Nivel ${key} (${source}):`, valor);
