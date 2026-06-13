@@ -190,6 +190,12 @@ function buildLocalDateTime(dateValue, timeValue, fallbackTime) {
   return `${dateValue} ${timeValue || fallbackTime}:00`;
 }
 
+function formatLevelSource(source) {
+  if (source === "local") return "Local";
+  if (source === "broker") return "Broker";
+  return "";
+}
+
 function buildAlarmasEndDateTime(dateValue) {
   if (!dateValue) return "";
 
@@ -332,6 +338,7 @@ export default function App() {
     cuadrada: 0,
   });
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
+  const [levelSources, setLevelSources] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
   const [alarmas, setAlarmas] = useState([]);
   const [alarmasLoading, setAlarmasLoading] = useState(false);
@@ -946,6 +953,7 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});
+          setLevelSources(data.levelSources || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
         })
@@ -1169,6 +1177,7 @@ export default function App() {
       rawLevel: niveles.cuadrada,
       plc: plcStatus.cuadrada,
       heartbeat: heartbeatStatus.cuadrada,
+      levelSource: levelSources.cuadrada,
     },
     {
       title: "Seis",
@@ -1546,6 +1555,7 @@ export default function App() {
                 plc={plcStatus.falcone}
                 heartbeat={heartbeatStatus.falcone}
                 heartbeatNow={heartbeatNow}
+                levelSource={levelSources.falcone}
                 onOpenConfig={() => openConfigModal("falcone")}
                 onOpenGraph={() => openGraphModal("falcone")}
                 canConfigure={canOperate}
@@ -1567,6 +1577,7 @@ export default function App() {
                         plc={item.plc}
                         heartbeat={item.heartbeat}
                         heartbeatNow={heartbeatNow}
+                        levelSource={item.levelSource}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
                         onOpenGraph={() => openGraphModal(item.tankKey)}
                         canConfigure={canOperate}
@@ -2433,12 +2444,14 @@ function FalconeCard({
   plc,
   heartbeat,
   heartbeatNow,
+  levelSource,
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
 }) {
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
+  const sourceLabel = formatLevelSource(levelSource);
 
   return (
     <article
@@ -2460,7 +2473,12 @@ function FalconeCard({
         <PumpBox name="P80B" runtime={0} state="ALARMADO" active="OFF" alert />
       </div>
 
-      <div className="footer-pills">
+      <div className="footer-pills footer-pills--stacked">
+        {sourceLabel && (
+          <div className={`footer-pill source-pill source-pill--${levelSource}`}>
+            {sourceLabel}
+          </div>
+        )}
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
@@ -2476,6 +2494,7 @@ function MiniTankCard({
   plc,
   heartbeat,
   heartbeatNow,
+  levelSource,
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
@@ -2483,6 +2502,7 @@ function MiniTankCard({
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
+  const sourceLabel = formatLevelSource(levelSource);
 
   return (
     <article
@@ -2523,6 +2543,11 @@ function MiniTankCard({
       </div>
 
       <div className="mini-footer">
+        {sourceLabel && (
+          <div className={`footer-pill source-pill source-pill--${levelSource}`}>
+            {sourceLabel}
+          </div>
+        )}
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 

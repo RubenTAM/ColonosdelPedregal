@@ -831,10 +831,33 @@ button {
   margin-top: 6px;
 }
 
+.footer-pills--stacked {
+  grid-template-columns: minmax(130px, 1fr);
+  max-width: 210px;
+}
+
 .footer-pill {
   color: #44556f;
   padding: 9px 8px;
   font-size: 13px;
+}
+
+.source-pill {
+  margin-bottom: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.source-pill--broker {
+  border-color: #c9d9f6;
+  color: #274a86;
+  background: linear-gradient(180deg, #f5f8ff 0%, #e6eefb 100%);
+}
+
+.source-pill--local {
+  border-color: #cfe4d4;
+  color: #276742;
+  background: linear-gradient(180deg, #f6fff8 0%, #e8f6ed 100%);
 }
 
 /* LOWER SECTION */
@@ -2350,8 +2373,16 @@ button {
 
 .mini-footer {
   display: flex;
+  flex-direction: column;
   justify-content: center;
+  align-items: center;
+  gap: 6px;
   margin-top: 50px;
+}
+
+.mini-footer .footer-pill {
+  min-width: 86px;
+  margin-bottom: 0;
 }
 
 .graph-card-btn {

@@ -63,6 +63,22 @@ let niveles = {
   runtime_p71b: 0,
 };
 
+const nivelesRedundantes = {
+  falcone: {
+    broker: 0,
+    local: 0,
+  },
+  cuadrada: {
+    broker: 0,
+    local: 0,
+  },
+};
+
+let nivelSourceStatus = {
+  falcone: "broker",
+  cuadrada: "broker",
+};
+
 let plcStatus = {
   planta: 0,
   cabo_viejo: 0,
@@ -79,9 +95,10 @@ const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 
 let heartbeatState = Object.keys(plcStatus).reduce((acc, key) => {
   acc[key] = {
-    lastValue: plcStatus[key],
-    lastChangedAt: Date.now(),
-    isOnline: true,
+    lastValue: null,
+    lastChangedAt: 0,
+    isOnline: false,
+    hasValue: false,
   };
   return acc;
 }, {});
@@ -156,12 +173,14 @@ const topicToKeyNivel = {
   Planta_Real_1: "planta",
   Caboviejo_Real_1: "cabo_viejo",
   Planta_Real_5: "cabo_viejo_tanques",
-  Falcone_Real_1: "falcone",
+  Falcone_Real_1: { key: "falcone", source: "broker" },
   Cinco_Real_1: "cinco",
   Seis_Real_1: "seis",
   Marilu_Real_1: "marilu",
   Pacifico_Real_1: "pacifico",
-  Cuadrada_Real_1: "cuadrada",
+  Cuadrada_Real_1: { key: "cuadrada", source: "broker" },
+  Caboviejo_Real_7: { key: "cuadrada", source: "local" },
+  Caboviejo_Real_8: { key: "falcone", source: "local" },
 };
 
 const HISTORICAL_TANK_COLUMNS = {
@@ -623,14 +642,52 @@ function registrarCambioHeartbeat(key, value) {
       lastValue: value,
       lastChangedAt: Date.now(),
       isOnline: true,
+      hasValue: true,
     };
     return;
   }
 
-  if (Number(heartbeatState[key].lastValue) !== Number(value)) {
+  if (
+    !heartbeatState[key].hasValue ||
+    Number(heartbeatState[key].lastValue) !== Number(value)
+  ) {
     heartbeatState[key].lastValue = value;
     heartbeatState[key].lastChangedAt = Date.now();
+    heartbeatState[key].hasValue = true;
   }
+}
+
+function heartbeatEstaOnline(key) {
+  const state = heartbeatState[key];
+  if (!state) return true;
+
+  const elapsedMs = Math.max(
+    0,
+    Date.now() - Number(state.lastChangedAt || Date.now())
+  );
+  return elapsedMs < HEARTBEAT_TIMEOUT_MS;
+}
+
+function resolverFuenteNivel(key) {
+  if (!nivelesRedundantes[key]) return "broker";
+  return heartbeatEstaOnline(key) ? "broker" : "local";
+}
+
+function actualizarNivelRedundante(key) {
+  if (!nivelesRedundantes[key]) return;
+
+  const source = resolverFuenteNivel(key);
+  nivelSourceStatus[key] = source;
+  niveles[key] = nivelesRedundantes[key][source];
+}
+
+function actualizarNivelesRedundantes() {
+  Object.keys(nivelesRedundantes).forEach(actualizarNivelRedundante);
+}
+
+function obtenerNivelSourceStatus() {
+  actualizarNivelesRedundantes();
+  return { ...nivelSourceStatus };
 }
 
 async function enviarWhatsAppAlerta(mensaje) {
@@ -761,6 +818,7 @@ function revisarHeartbeatsYAlertas() {
     if (state.isOnline === isOnline) return;
 
     state.isOnline = isOnline;
+    actualizarNivelRedundante(key);
 
     if (isOnline) {
       registrarAlarmaConexion(key);
@@ -780,8 +838,8 @@ function construirHeartbeatStatus() {
 
   return Object.keys(plcStatus).reduce((acc, key) => {
     const state = heartbeatState[key] || {
-      lastValue: plcStatus[key],
-      lastChangedAt: now,
+      lastValue: null,
+      lastChangedAt: 0,
     };
     const elapsedMs = Math.max(0, now - Number(state.lastChangedAt || now));
     const remainingMs = Math.max(0, HEARTBEAT_TIMEOUT_MS - elapsedMs);
@@ -793,10 +851,7 @@ function construirHeartbeatStatus() {
       elapsedMs,
       remainingMs,
       timeoutMs: HEARTBEAT_TIMEOUT_MS,
-      isOnline:
-        typeof state.isOnline === "boolean"
-          ? state.isOnline
-          : elapsedMs < HEARTBEAT_TIMEOUT_MS,
+      isOnline: elapsedMs < HEARTBEAT_TIMEOUT_MS,
     };
 
     return acc;
@@ -992,7 +1047,17 @@ client.on("message", (topic, message) => {
     const valor = parseFloat(texto);
     if (isNaN(valor)) return;
 
-    const key = topicToKeyNivel[topic];
+    const target = topicToKeyNivel[topic];
+    const key = typeof target === "string" ? target : target.key;
+    const source = typeof target === "string" ? null : target.source;
+
+    if (source && nivelesRedundantes[key]) {
+      nivelesRedundantes[key][source] = valor;
+      actualizarNivelRedundante(key);
+      console.log(`Nivel ${key} (${source}):`, valor);
+      return;
+    }
+
     niveles[key] = valor;
     console.log(`Nivel ${key}:`, valor);
     return;
@@ -1006,6 +1071,7 @@ client.on("message", (topic, message) => {
 
     plcStatus[key] = valorPlc;
     registrarCambioHeartbeat(key, valorPlc);
+    actualizarNivelRedundante(key);
     console.log(`PLC status ${key}:`, plcStatus[key]);
     return;
   }
@@ -1025,6 +1091,7 @@ client.on("message", (topic, message) => {
 function guardarHistorico() {
   if (guardandoHistorico) return;
   guardandoHistorico = true;
+  actualizarNivelesRedundantes();
 
   db.run(
     `
@@ -1484,10 +1551,13 @@ app.post("/api/planta/bombas-toggle", verifyToken, canOperate, (req, res) => {
 /* ESTO ES LO IMPORTANTE PARA NO ROMPER MQTT/DASHBOARD */
 
 app.get("/api/niveles", (req, res) => {
+  const levelSources = obtenerNivelSourceStatus();
+
   res.json({
     niveles,
     plcStatus,
     heartbeatStatus: construirHeartbeatStatus(),
+    levelSources,
     alertasWhatsApp: ultimasAlertasWhatsApp,
     maytapi: {
       configured: maytapiConfigurado(true),
