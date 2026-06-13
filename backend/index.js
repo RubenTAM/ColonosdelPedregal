@@ -436,7 +436,7 @@ function fechaLocalTijuana() {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   })
     .formatToParts(new Date())
     .reduce((acc, part) => {
@@ -444,7 +444,9 @@ function fechaLocalTijuana() {
       return acc;
     }, {});
 
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+  const hour = parts.hour === "24" ? "00" : parts.hour;
+
+  return `${parts.year}-${parts.month}-${parts.day} ${hour}:${parts.minute}:${parts.second}`;
 }
 
 function obtenerHoraLocal(fecha) {

@@ -190,6 +190,22 @@ function buildLocalDateTime(dateValue, timeValue, fallbackTime) {
   return `${dateValue} ${timeValue || fallbackTime}:00`;
 }
 
+function buildAlarmasEndDateTime(dateValue) {
+  if (!dateValue) return "";
+
+  // Incluye filas antiguas guardadas como 24:xx antes de corregir el backend.
+  return `${dateValue} 24:59:59`;
+}
+
+function getFiltroAlarmasHoy() {
+  const today = formatDateInput(new Date());
+
+  return {
+    startDate: today,
+    endDate: today,
+  };
+}
+
 function formatChartAxisTime(value) {
   const date = parseSqlUtcDate(value);
 
@@ -319,14 +335,10 @@ export default function App() {
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
   const [alarmas, setAlarmas] = useState([]);
   const [alarmasLoading, setAlarmasLoading] = useState(false);
-  const [alarmasFiltro, setAlarmasFiltro] = useState({
-    startDate: "",
-    endDate: "",
-  });
-  const [alarmasFiltroAplicado, setAlarmasFiltroAplicado] = useState({
-    startDate: "",
-    endDate: "",
-  });
+  const [alarmasFiltro, setAlarmasFiltro] = useState(getFiltroAlarmasHoy);
+  const [alarmasFiltroAplicado, setAlarmasFiltroAplicado] =
+    useState(getFiltroAlarmasHoy);
+  const [alarmasTiempoReal, setAlarmasTiempoReal] = useState(true);
   const [alarmCardView, setAlarmCardView] = useState("log");
   const [alarmChartTank, setAlarmChartTank] = useState("cuadrada");
 
@@ -950,16 +962,17 @@ export default function App() {
 
     const cargarAlarmas = () => {
       const params = new URLSearchParams();
+      const filtroConsulta = alarmasTiempoReal
+        ? getFiltroAlarmasHoy()
+        : alarmasFiltroAplicado;
       const start = buildLocalDateTime(
-        alarmasFiltroAplicado.startDate,
+        filtroConsulta.startDate,
         "",
         "00:00"
       );
-      const end = buildLocalDateTime(
-        alarmasFiltroAplicado.endDate,
-        "",
-        "23:59"
-      );
+      const end = alarmasTiempoReal
+        ? ""
+        : buildAlarmasEndDateTime(filtroConsulta.endDate);
       const tieneFiltro = Boolean(start || end);
 
       params.set("limit", tieneFiltro ? "300" : "20");
@@ -984,7 +997,7 @@ export default function App() {
     cargarAlarmas();
     const interval = setInterval(cargarAlarmas, 5000);
     return () => clearInterval(interval);
-  }, [authUser, alarmasFiltroAplicado]);
+  }, [authUser, alarmasFiltroAplicado, alarmasTiempoReal]);
 
   useEffect(() => {
     if (!authUser) return;
@@ -1272,17 +1285,25 @@ export default function App() {
 
   const handleApplyAlarmasFiltro = (e) => {
     e.preventDefault();
+
+    if (!alarmasFiltro.startDate && !alarmasFiltro.endDate) {
+      const filtroHoy = getFiltroAlarmasHoy();
+      setAlarmasFiltro(filtroHoy);
+      setAlarmasFiltroAplicado(filtroHoy);
+      setAlarmasTiempoReal(true);
+      return;
+    }
+
     setAlarmasFiltroAplicado(alarmasFiltro);
+    setAlarmasTiempoReal(false);
   };
 
   const handleClearAlarmasFiltro = () => {
-    const filtroVacio = {
-      startDate: "",
-      endDate: "",
-    };
+    const filtroHoy = getFiltroAlarmasHoy();
 
-    setAlarmasFiltro(filtroVacio);
-    setAlarmasFiltroAplicado(filtroVacio);
+    setAlarmasFiltro(filtroHoy);
+    setAlarmasFiltroAplicado(filtroHoy);
+    setAlarmasTiempoReal(true);
   };
 
   if (!authChecked) {
@@ -1306,13 +1327,20 @@ export default function App() {
 
   const isAdmin = authUser.username === "admin" && authUser.role === "admin";
   const canOperate = userCanOperate(authUser);
+  const filtroAlarmasHoy = getFiltroAlarmasHoy();
+  const alarmasFiltroEsHoy =
+    alarmasFiltro.startDate === filtroAlarmasHoy.startDate &&
+    alarmasFiltro.endDate === filtroAlarmasHoy.endDate;
   const alarmasFiltroActivo = Boolean(
-    alarmasFiltroAplicado.startDate || alarmasFiltroAplicado.endDate
+    !alarmasTiempoReal &&
+      (alarmasFiltroAplicado.startDate || alarmasFiltroAplicado.endDate)
   );
-  const alarmasHeaderText = alarmasFiltroActivo
-    ? "Desconexiones del rango seleccionado"
-    : alarmas.length
-      ? "Ultimas desconexiones detectadas"
+  const alarmasHeaderText = alarmasTiempoReal
+    ? alarmas.length
+      ? "Eventos de hoy en tiempo real"
+      : "Monitoreando alarmas de hoy"
+    : alarmasFiltroActivo
+      ? "Eventos del rango seleccionado"
       : "En espera de eventos MQTT";
   const alarmChartTankLabel =
     TANK_OPTIONS.find((tank) => tank.key === alarmChartTank)?.label ||
@@ -1603,9 +1631,7 @@ export default function App() {
                       type="button"
                       onClick={handleClearAlarmasFiltro}
                       disabled={
-                        !alarmasFiltro.startDate &&
-                        !alarmasFiltro.endDate &&
-                        !alarmasFiltroActivo
+                        alarmasTiempoReal && alarmasFiltroEsHoy
                       }
                     >
                       Limpiar
