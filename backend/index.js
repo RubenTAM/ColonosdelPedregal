@@ -65,12 +65,12 @@ let niveles = {
 
 const nivelesRedundantes = {
   falcone: {
-    broker: 0,
-    local: 0,
+    broker: { value: 0, hasValue: false },
+    local: { value: 0, hasValue: false },
   },
   cuadrada: {
-    broker: 0,
-    local: 0,
+    broker: { value: 0, hasValue: false },
+    local: { value: 0, hasValue: false },
   },
 };
 
@@ -96,8 +96,8 @@ const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 let heartbeatState = Object.keys(plcStatus).reduce((acc, key) => {
   acc[key] = {
     lastValue: null,
-    lastChangedAt: 0,
-    isOnline: false,
+    lastChangedAt: Date.now(),
+    isOnline: true,
     hasValue: false,
   };
   return acc;
@@ -661,9 +661,10 @@ function heartbeatEstaOnline(key) {
   const state = heartbeatState[key];
   if (!state) return true;
 
+  const lastChangedAt = Number(state.lastChangedAt);
   const elapsedMs = Math.max(
     0,
-    Date.now() - Number(state.lastChangedAt || Date.now())
+    Date.now() - (Number.isFinite(lastChangedAt) ? lastChangedAt : Date.now())
   );
   return elapsedMs < HEARTBEAT_TIMEOUT_MS;
 }
@@ -674,11 +675,18 @@ function resolverFuenteNivel(key) {
 }
 
 function actualizarNivelRedundante(key) {
-  if (!nivelesRedundantes[key]) return;
+  const redundant = nivelesRedundantes[key];
+  if (!redundant) return;
 
-  const source = resolverFuenteNivel(key);
+  const preferredSource = resolverFuenteNivel(key);
+  const fallbackSource = preferredSource === "broker" ? "local" : "broker";
+  const source = redundant[preferredSource].hasValue
+    ? preferredSource
+    : redundant[fallbackSource].hasValue
+      ? fallbackSource
+      : preferredSource;
   nivelSourceStatus[key] = source;
-  niveles[key] = nivelesRedundantes[key][source];
+  niveles[key] = redundant[source].value;
 }
 
 function actualizarNivelesRedundantes() {
@@ -812,7 +820,11 @@ function revisarHeartbeatsYAlertas() {
     const state = heartbeatState[key];
     if (!state) return;
 
-    const elapsedMs = Math.max(0, now - Number(state.lastChangedAt || now));
+    const lastChangedAt = Number(state.lastChangedAt);
+    const elapsedMs = Math.max(
+      0,
+      now - (Number.isFinite(lastChangedAt) ? lastChangedAt : now)
+    );
     const isOnline = elapsedMs < HEARTBEAT_TIMEOUT_MS;
 
     if (state.isOnline === isOnline) return;
@@ -841,7 +853,11 @@ function construirHeartbeatStatus() {
       lastValue: null,
       lastChangedAt: 0,
     };
-    const elapsedMs = Math.max(0, now - Number(state.lastChangedAt || now));
+    const lastChangedAt = Number(state.lastChangedAt);
+    const elapsedMs = Math.max(
+      0,
+      now - (Number.isFinite(lastChangedAt) ? lastChangedAt : now)
+    );
     const remainingMs = Math.max(0, HEARTBEAT_TIMEOUT_MS - elapsedMs);
 
     acc[key] = {
@@ -1052,7 +1068,10 @@ client.on("message", (topic, message) => {
     const source = typeof target === "string" ? null : target.source;
 
     if (source && nivelesRedundantes[key]) {
-      nivelesRedundantes[key][source] = valor;
+      nivelesRedundantes[key][source] = {
+        value: valor,
+        hasValue: true,
+      };
       actualizarNivelRedundante(key);
       console.log(`Nivel ${key} (${source}):`, valor);
       return;

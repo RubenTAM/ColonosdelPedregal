@@ -92,7 +92,7 @@ function formatHeartbeatDuration(ms) {
   return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
 }
 
-function resolveHeartbeatMeta(heartbeat) {
+function resolveHeartbeatMeta(heartbeat, now = Date.now()) {
   if (!heartbeat) {
     return {
       isOnline: true,
@@ -104,12 +104,13 @@ function resolveHeartbeatMeta(heartbeat) {
   }
 
   const timeoutMs = Math.max(0, Number(heartbeat.timeoutMs) || 0);
-  const elapsedMs = Math.max(0, Number(heartbeat.elapsedMs) || 0);
-  const remainingMs = Math.max(0, Number(heartbeat.remainingMs) || 0);
-  const isOnline =
-    typeof heartbeat.isOnline === "boolean"
-      ? heartbeat.isOnline
-      : timeoutMs === 0 || elapsedMs < timeoutMs;
+  const lastChangedAt = Number(heartbeat.lastChangedAt);
+  const elapsedMs =
+    Number.isFinite(lastChangedAt) && lastChangedAt > 0
+      ? Math.max(0, now - lastChangedAt)
+      : Math.max(0, Number(heartbeat.elapsedMs) || 0);
+  const remainingMs = Math.max(0, timeoutMs - elapsedMs);
+  const isOnline = timeoutMs === 0 || elapsedMs < timeoutMs;
 
   return {
     isOnline,
