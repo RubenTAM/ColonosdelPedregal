@@ -1,6 +1,8 @@
 const sqlite3 = require("sqlite3").verbose();
 const bcrypt = require("bcryptjs");
 
+const ALARMAS_RESET_CUTOFF = "2026-06-13 10:59:04";
+
 const db = new sqlite3.Database("./niveles.db", (err) => {
   if (err) {
     console.error("Error al abrir base de datos:", err.message);
@@ -156,6 +158,32 @@ db.serialize(() => {
       mensaje TEXT NOT NULL,
       fecha TEXT NOT NULL
     )
+  `);
+
+  db.run(
+    `
+    DELETE FROM alarmas
+    WHERE fecha <= ?
+       OR fecha LIKE '__/__/____%'
+       OR fecha LIKE '% 24:%'
+    `,
+    [ALARMAS_RESET_CUTOFF],
+    function onResetAlarmas(err) {
+      if (err) {
+        console.error("Error limpiando log de alarmas:", err.message);
+        return;
+      }
+
+      if (this.changes > 0) {
+        console.log(`Log de alarmas reiniciado: ${this.changes} registros eliminados`);
+      }
+    }
+  );
+
+  db.run(`
+    DELETE FROM sqlite_sequence
+    WHERE name = 'alarmas'
+      AND NOT EXISTS (SELECT 1 FROM alarmas)
   `);
 
   ensureEventosColumn("modificado_por");

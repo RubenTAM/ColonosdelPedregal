@@ -1555,6 +1555,24 @@ app.get("/api/alarmas", verifyToken, (req, res) => {
   );
 });
 
+app.delete("/api/alarmas", verifyToken, onlyAdmin, (req, res) => {
+  db.run("DELETE FROM alarmas", [], function onDeleteAlarmas(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+
+    const deleted = this.changes || 0;
+
+    db.run("DELETE FROM sqlite_sequence WHERE name = 'alarmas'", [], (seqErr) => {
+      if (seqErr) {
+        return res.status(500).json({ error: seqErr.message });
+      }
+
+      res.json({ ok: true, deleted });
+    });
+  });
+});
+
 app.get("/api/maytapi/groups", verifyToken, onlyAdmin, async (req, res) => {
   try {
     const data = await listarGruposMaytapi();
