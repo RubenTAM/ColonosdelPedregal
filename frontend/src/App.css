@@ -833,7 +833,7 @@ button {
 
 .footer-pills--stacked {
   grid-template-columns: minmax(130px, 1fr);
-  max-width: 210px;
+  max-width: 230px;
 }
 
 .footer-pill {
@@ -842,22 +842,85 @@ button {
   font-size: 13px;
 }
 
-.source-pill {
-  margin-bottom: 0;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.channel-indicators {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+  min-width: 150px;
 }
 
-.source-pill--broker {
-  border-color: #c9d9f6;
-  color: #274a86;
-  background: linear-gradient(180deg, #f5f8ff 0%, #e6eefb 100%);
+.channel-indicator {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid #d9e1ec;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef3f8 100%);
+  color: #354861;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
 }
 
-.source-pill--local {
-  border-color: #cfe4d4;
-  color: #276742;
-  background: linear-gradient(180deg, #f6fff8 0%, #e8f6ed 100%);
+.channel-indicator__dot {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #15181d;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.28);
+}
+
+.channel-indicator--active .channel-indicator__dot {
+  background: var(--green);
+  box-shadow:
+    0 0 0 5px rgba(78, 164, 90, 0.13),
+    inset 0 1px 1px rgba(255, 255, 255, 0.36);
+}
+
+.channel-indicator--expired .channel-indicator__dot {
+  background: #2b2f36;
+  opacity: 0.82;
+}
+
+.channel-indicator__label,
+.channel-indicator__timer {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.channel-indicator__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-indicator__timer {
+  color: #647287;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.channel-indicators--compact {
+  min-width: 130px;
+}
+
+.channel-indicators--compact .channel-indicator {
+  grid-template-columns: 13px minmax(0, 1fr) auto;
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.channel-indicators--compact .channel-indicator__dot {
+  width: 13px;
+  height: 13px;
+}
+
+.channel-indicators--compact .channel-indicator__timer {
+  font-size: 10px;
 }
 
 /* LOWER SECTION */

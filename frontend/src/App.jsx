@@ -48,6 +48,10 @@ const CABO_VIEJO_BYPASS_CONFIG = {
 };
 
 const ASSIGNMENT_FEEDBACK_TIMEOUT_MS = 30 * 1000;
+const COMMUNICATION_CHANNELS = [
+  { key: "antenna", label: "Antena" },
+  { key: "telcel", label: "Telcel" },
+];
 
 function userCanOperate(user) {
   return (
@@ -189,12 +193,6 @@ function buildLocalDateTime(dateValue, timeValue, fallbackTime) {
   if (!dateValue) return "";
 
   return `${dateValue} ${timeValue || fallbackTime}:00`;
-}
-
-function formatLevelSource(source) {
-  if (source === "local") return "Local";
-  if (source === "broker") return "Broker";
-  return "";
 }
 
 function buildAlarmasEndDateTime(dateValue) {
@@ -339,7 +337,6 @@ export default function App() {
     cuadrada: 0,
   });
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
-  const [levelSources, setLevelSources] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
   const [alarmas, setAlarmas] = useState([]);
   const [alarmasLoading, setAlarmasLoading] = useState(false);
@@ -954,7 +951,6 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});
-          setLevelSources(data.levelSources || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setPlantaBotones(data.plantaBotones || {});
         })
@@ -1178,7 +1174,6 @@ export default function App() {
       rawLevel: niveles.cuadrada,
       plc: plcStatus.cuadrada,
       heartbeat: heartbeatStatus.cuadrada,
-      levelSource: levelSources.cuadrada,
     },
     {
       title: "Seis",
@@ -1556,7 +1551,6 @@ export default function App() {
                 plc={plcStatus.falcone}
                 heartbeat={heartbeatStatus.falcone}
                 heartbeatNow={heartbeatNow}
-                levelSource={levelSources.falcone}
                 onOpenConfig={() => openConfigModal("falcone")}
                 onOpenGraph={() => openGraphModal("falcone")}
                 canConfigure={canOperate}
@@ -1578,7 +1572,6 @@ export default function App() {
                         plc={item.plc}
                         heartbeat={item.heartbeat}
                         heartbeatNow={heartbeatNow}
-                        levelSource={item.levelSource}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
                         onOpenGraph={() => openGraphModal(item.tankKey)}
                         canConfigure={canOperate}
@@ -2445,14 +2438,12 @@ function FalconeCard({
   plc,
   heartbeat,
   heartbeatNow,
-  levelSource,
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
 }) {
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
-  const sourceLabel = formatLevelSource(levelSource);
 
   return (
     <article
@@ -2463,8 +2454,6 @@ function FalconeCard({
       <CardHeader
         title="FALCONE"
         onOpenConfig={onOpenConfig}
-        heartbeat={heartbeat}
-        heartbeatNow={heartbeatNow}
         disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} rawLevel={rawLevel} />
@@ -2475,11 +2464,7 @@ function FalconeCard({
       </div>
 
       <div className="footer-pills footer-pills--stacked">
-        {sourceLabel && (
-          <div className={`footer-pill source-pill source-pill--${levelSource}`}>
-            {sourceLabel}
-          </div>
-        )}
+        <ChannelIndicators heartbeat={heartbeat} heartbeatNow={heartbeatNow} />
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
@@ -2495,7 +2480,6 @@ function MiniTankCard({
   plc,
   heartbeat,
   heartbeatNow,
-  levelSource,
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
@@ -2503,7 +2487,7 @@ function MiniTankCard({
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
-  const sourceLabel = formatLevelSource(levelSource);
+  const hasChannelIndicators = Boolean(heartbeat?.channels);
 
   return (
     <article
@@ -2512,7 +2496,9 @@ function MiniTankCard({
       <div className="mini-card__header mini-card__header--with-actions">
         <div className="mini-card__title-row">
           <h4>{title}</h4>
-          <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />
+          {!hasChannelIndicators && (
+            <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />
+          )}
         </div>
         <button
           className="mini-card__menu"
@@ -2544,10 +2530,12 @@ function MiniTankCard({
       </div>
 
       <div className="mini-footer">
-        {sourceLabel && (
-          <div className={`footer-pill source-pill source-pill--${levelSource}`}>
-            {sourceLabel}
-          </div>
+        {hasChannelIndicators && (
+          <ChannelIndicators
+            heartbeat={heartbeat}
+            heartbeatNow={heartbeatNow}
+            compact
+          />
         )}
         <div className="footer-pill">PLC: {plc}</div>
       </div>
@@ -2588,7 +2576,7 @@ function CardHeader({
     <div className="card-head">
       <div className="card-head__center">
         <h2>{title}</h2>
-        <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />
+        {heartbeat && <HeartbeatIndicator heartbeatMeta={heartbeatMeta} />}
       </div>
 
       <button className="more-btn" onClick={onOpenConfig} disabled={disableActions}>
@@ -2611,6 +2599,42 @@ function HeartbeatIndicator({ heartbeatMeta }) {
         }`}
       />
     </span>
+  );
+}
+
+function ChannelIndicators({ heartbeat, heartbeatNow, compact = false }) {
+  if (!heartbeat?.channels) return null;
+
+  return (
+    <div
+      className={`channel-indicators ${
+        compact ? "channel-indicators--compact" : ""
+      }`}
+    >
+      {COMMUNICATION_CHANNELS.map((channel) => {
+        const channelHeartbeat = heartbeat.channels[channel.key];
+        const meta = resolveHeartbeatMeta(channelHeartbeat, heartbeatNow);
+        const isActive = heartbeat.source === channel.key && meta.isOnline;
+        const title = `${channel.label}: ${meta.label}`;
+
+        return (
+          <div
+            className={`channel-indicator ${
+              isActive ? "channel-indicator--active" : ""
+            } ${meta.isOnline ? "" : "channel-indicator--expired"}`}
+            title={title}
+            aria-label={title}
+            key={channel.key}
+          >
+            <span className="channel-indicator__dot" />
+            <span className="channel-indicator__label">{channel.label}</span>
+            <span className="channel-indicator__timer">
+              {meta.isOnline ? formatHeartbeatDuration(meta.remainingMs) : "0m 00s"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
