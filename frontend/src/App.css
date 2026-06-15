@@ -836,6 +836,12 @@ button {
   max-width: 230px;
 }
 
+.footer-pills--cabo-status {
+  grid-template-columns: minmax(150px, 230px) minmax(90px, 140px);
+  align-items: end;
+  max-width: 390px;
+}
+
 .footer-pill {
   color: #44556f;
   padding: 9px 8px;
@@ -921,6 +927,10 @@ button {
 
 .channel-indicators--compact .channel-indicator__timer {
   font-size: 10px;
+}
+
+.channel-indicators--boolean .channel-indicator {
+  grid-template-columns: 15px minmax(0, 1fr);
 }
 
 /* LOWER SECTION */

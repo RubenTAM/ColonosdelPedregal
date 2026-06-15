@@ -169,6 +169,11 @@ let bombasCaboviejo = {
   p71b: { man: 0, off: 0, auto: 1, running: 0 },
 };
 
+let caboViejoComunicacion = {
+  antenna: 0,
+  telcel: 0,
+};
+
 let plantaBotones = {
   bombaA: 0,
   bombaB: 0,
@@ -256,6 +261,11 @@ const topicToKeyBombasCaboviejo = {
   Caboviejo_Bool_12: { bomba: "p71b", campo: "off" },
   Caboviejo_Bool_13: { bomba: "p71b", campo: "auto" },
   Caboviejo_Bool_17: { bomba: "p71b", campo: "running" },
+};
+
+const topicToKeyComunicacionCaboviejo = {
+  Caboviejo_Bool_24: "antenna",
+  Caboviejo_Bool_25: "telcel",
 };
 
 const caboViejoP70AModos = {
@@ -1049,6 +1059,7 @@ const topicsNivel = Object.keys(topicToKeyNivel);
 const topicsPlc = Object.keys(topicToKeyPlc);
 const topicsRuntime = Object.keys(topicToKeyRuntime);
 const topicsBombasCaboviejo = Object.keys(topicToKeyBombasCaboviejo);
+const topicsComunicacionCaboviejo = Object.keys(topicToKeyComunicacionCaboviejo);
 const topicsPlantaBotones = Object.keys(topicToKeyPlantaBotones);
 
 const topics = [
@@ -1056,6 +1067,7 @@ const topics = [
   ...topicsPlc,
   ...topicsRuntime,
   ...topicsBombasCaboviejo,
+  ...topicsComunicacionCaboviejo,
   ...topicsPlantaBotones,
 ];
 
@@ -1161,6 +1173,17 @@ client.on("message", (topic, message) => {
     }
 
     console.log(`Bomba ${bomba} - ${campo}:`, valorNormalizado);
+    return;
+  }
+
+  /* INDICADOR DE COMUNICACION CABO VIEJO */
+  if (topicToKeyComunicacionCaboviejo[topic]) {
+    const key = topicToKeyComunicacionCaboviejo[topic];
+    const valorNormalizado =
+      texto === "1" || texto.toLowerCase() === "true" ? 1 : 0;
+
+    caboViejoComunicacion[key] = valorNormalizado;
+    console.log(`Cabo Viejo comunicacion ${key}:`, valorNormalizado);
     return;
   }
 
@@ -1703,6 +1726,7 @@ app.get("/api/niveles", (req, res) => {
       alertKeys: Array.from(heartbeatAlertKeys),
     },
     bombasCaboviejo,
+    caboViejoComunicacion,
     plantaBotones,
   });
 });

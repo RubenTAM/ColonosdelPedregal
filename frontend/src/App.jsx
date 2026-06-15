@@ -353,6 +353,10 @@ export default function App() {
     p71a: { man: 0, off: 0, auto: 1, running: 0 },
     p71b: { man: 0, off: 0, auto: 1, running: 0 },
   });
+  const [caboViejoComunicacion, setCaboViejoComunicacion] = useState({
+    antenna: 0,
+    telcel: 0,
+  });
 
   const [plantaBotones, setPlantaBotones] = useState({
     bombaA: 0,
@@ -952,6 +956,7 @@ export default function App() {
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});
           setBombasCaboviejo(data.bombasCaboviejo || {});
+          setCaboViejoComunicacion(data.caboViejoComunicacion || {});
           setPlantaBotones(data.plantaBotones || {});
         })
         .catch((err) => console.error("Error al obtener niveles:", err));
@@ -1533,6 +1538,7 @@ export default function App() {
                 p71a={niveles.runtime_p71a}
                 p71b={niveles.runtime_p71b}
                 bombasCaboviejo={bombasCaboviejo}
+                communicationSource={caboViejoComunicacion}
                 bypassFalconeActive={Number(plantaBotones?.bypassFalcone) === 1}
                 bypassCuadradaActive={Number(plantaBotones?.bypassCuadrada) === 1}
                 pumpsUnavailable
@@ -2328,6 +2334,7 @@ function CaboViejoCard({
   p71a,
   p71b,
   bombasCaboviejo,
+  communicationSource,
   bypassFalconeActive = false,
   bypassCuadradaActive = false,
   pumpsUnavailable = false,
@@ -2349,8 +2356,6 @@ function CaboViejoCard({
       <CardHeader
         title="CABO VIEJO"
         onOpenConfig={onOpenConfig}
-        heartbeat={heartbeat}
-        heartbeatNow={heartbeatNow}
         disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} rawLevel={rawLevel} />
@@ -2404,7 +2409,8 @@ function CaboViejoCard({
         />
       </div>
 
-      <div className="footer-pills">
+      <div className="footer-pills footer-pills--cabo-status">
+        <BooleanChannelIndicators status={communicationSource} />
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
@@ -2631,6 +2637,35 @@ function ChannelIndicators({ heartbeat, heartbeatNow, compact = false }) {
             <span className="channel-indicator__timer">
               {meta.isOnline ? formatHeartbeatDuration(meta.remainingMs) : "0m 00s"}
             </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function BooleanChannelIndicators({ status }) {
+  return (
+    <div className="channel-indicators channel-indicators--boolean">
+      {COMMUNICATION_CHANNELS.map((channel) => {
+        const value = status?.[channel.key];
+        const isActive =
+          value === true ||
+          Number(value) === 1 ||
+          String(value).toLowerCase() === "true";
+        const title = `${channel.label}: ${isActive ? "Activo" : "Inactivo"}`;
+
+        return (
+          <div
+            className={`channel-indicator ${
+              isActive ? "channel-indicator--active" : ""
+            }`}
+            title={title}
+            aria-label={title}
+            key={channel.key}
+          >
+            <span className="channel-indicator__dot" />
+            <span className="channel-indicator__label">{channel.label}</span>
           </div>
         );
       })}
