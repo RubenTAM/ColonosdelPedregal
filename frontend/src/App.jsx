@@ -52,6 +52,10 @@ const COMMUNICATION_CHANNELS = [
   { key: "antenna", label: "Antena" },
   { key: "telcel", label: "Telcel" },
 ];
+const REDUNDANT_COMMUNICATION_CHANNELS = [
+  ...COMMUNICATION_CHANNELS,
+  { key: "planta", label: "Planta" },
+];
 
 function userCanOperate(user) {
   return (
@@ -2617,7 +2621,7 @@ function ChannelIndicators({ heartbeat, heartbeatNow, compact = false }) {
         compact ? "channel-indicators--compact" : ""
       }`}
     >
-      {COMMUNICATION_CHANNELS.map((channel) => {
+      {REDUNDANT_COMMUNICATION_CHANNELS.map((channel) => {
         const channelHeartbeat = heartbeat.channels[channel.key];
         const meta = resolveHeartbeatMeta(channelHeartbeat, heartbeatNow);
         const isActive = heartbeat.source === channel.key && meta.isOnline;

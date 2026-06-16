@@ -57,7 +57,12 @@ const HEARTBEAT_EXTENDED_TIMEOUT_KEYS = new Set([
 const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 const REDUNDANT_PRIMARY_SOURCE = "antenna";
 const REDUNDANT_FALLBACK_SOURCE = "telcel";
-const REDUNDANT_SOURCES = [REDUNDANT_PRIMARY_SOURCE, REDUNDANT_FALLBACK_SOURCE];
+const REDUNDANT_PLANTA_SOURCE = "planta";
+const REDUNDANT_SOURCES = [
+  REDUNDANT_PRIMARY_SOURCE,
+  REDUNDANT_FALLBACK_SOURCE,
+  REDUNDANT_PLANTA_SOURCE,
+];
 
 function crearHeartbeatState() {
   return {
@@ -95,10 +100,12 @@ const nivelesRedundantes = {
   falcone: {
     antenna: { value: 0, hasValue: false, updatedAt: 0 },
     telcel: { value: 0, hasValue: false, updatedAt: 0 },
+    planta: { value: 0, hasValue: false, updatedAt: 0 },
   },
   cuadrada: {
     antenna: { value: 0, hasValue: false, updatedAt: 0 },
     telcel: { value: 0, hasValue: false, updatedAt: 0 },
+    planta: { value: 0, hasValue: false, updatedAt: 0 },
   },
 };
 
@@ -208,6 +215,8 @@ const caboViejoEventoPrevio = {};
 const topicToKeyNivel = {
   Planta_Real_1: "planta",
   Caboviejo_Real_1: "cabo_viejo",
+  Planta_Real_3: { key: "falcone", source: REDUNDANT_PLANTA_SOURCE },
+  Planta_Real_4: { key: "cuadrada", source: REDUNDANT_PLANTA_SOURCE },
   Planta_Real_5: "cabo_viejo_tanques",
   Falcone_Real_1: { key: "falcone", source: REDUNDANT_FALLBACK_SOURCE },
   Cinco_Real_1: "cinco",
@@ -243,6 +252,8 @@ const topicToKeyPlc = {
   Cuadrada_Real_2: { key: "cuadrada", source: REDUNDANT_FALLBACK_SOURCE },
   Caboviejo_Real_9: { key: "cuadrada", source: REDUNDANT_PRIMARY_SOURCE },
   Caboviejo_Real_10: { key: "falcone", source: REDUNDANT_PRIMARY_SOURCE },
+  Planta_Real_11: { key: "cuadrada", source: REDUNDANT_PLANTA_SOURCE },
+  Planta_Real_12: { key: "falcone", source: REDUNDANT_PLANTA_SOURCE },
 };
 
 /* TOPICS MQTT - RUNTIME CABO VIEJO */
@@ -727,11 +738,28 @@ function heartbeatRedundanteEstaOnline(key, source) {
   return elapsedMs < obtenerHeartbeatTimeoutMs(key);
 }
 
+function obtenerFuentesRedundantesPorPrioridad(preferredSource) {
+  return [
+    preferredSource,
+    ...REDUNDANT_SOURCES.filter((source) => source !== preferredSource),
+  ];
+}
+
+function resolverFuenteConValor(channels, preferredSource) {
+  return (
+    obtenerFuentesRedundantesPorPrioridad(preferredSource).find(
+      (source) => channels[source]?.hasValue
+    ) || preferredSource
+  );
+}
+
 function resolverFuenteComunicacionRedundante(key) {
   if (!nivelesRedundantes[key]) return REDUNDANT_FALLBACK_SOURCE;
-  return heartbeatRedundanteEstaOnline(key, REDUNDANT_PRIMARY_SOURCE)
-    ? REDUNDANT_PRIMARY_SOURCE
-    : REDUNDANT_FALLBACK_SOURCE;
+  return (
+    REDUNDANT_SOURCES.find((source) =>
+      heartbeatRedundanteEstaOnline(key, source)
+    ) || REDUNDANT_FALLBACK_SOURCE
+  );
 }
 
 function resolverFuenteNivel(key) {
@@ -744,17 +772,7 @@ function actualizarPlcRedundante(key) {
   if (!channels) return;
 
   const preferredSource = resolverFuenteComunicacionRedundante(key);
-  const fallbackSource =
-    preferredSource === REDUNDANT_PRIMARY_SOURCE
-      ? REDUNDANT_FALLBACK_SOURCE
-      : REDUNDANT_PRIMARY_SOURCE;
-  const preferred = channels[preferredSource];
-  const fallback = channels[fallbackSource];
-  const source = preferred?.hasValue
-    ? preferredSource
-    : fallback?.hasValue
-      ? fallbackSource
-      : preferredSource;
+  const source = resolverFuenteConValor(channels, preferredSource);
   const selected = channels[source];
 
   if (selected?.hasValue) {
@@ -767,17 +785,7 @@ function actualizarNivelRedundante(key) {
   if (!redundant) return;
 
   const preferredSource = resolverFuenteNivel(key);
-  const fallbackSource =
-    preferredSource === REDUNDANT_PRIMARY_SOURCE
-      ? REDUNDANT_FALLBACK_SOURCE
-      : REDUNDANT_PRIMARY_SOURCE;
-  const preferred = redundant[preferredSource];
-  const fallback = redundant[fallbackSource];
-  const source = preferred.hasValue
-    ? preferredSource
-    : fallback.hasValue
-      ? fallbackSource
-      : preferredSource;
+  const source = resolverFuenteConValor(redundant, preferredSource);
 
   nivelSourceStatus[key] = source;
   niveles[key] = redundant[source].value;
