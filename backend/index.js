@@ -1378,7 +1378,8 @@ function esAdmin(user) {
 }
 
 function puedeOperar(user) {
-  return esAdmin(user) || normalizarRolUsuario(user) === ROLE_MAINTENANCE;
+  const role = normalizarRolUsuario(user);
+  return esAdmin(user) || role === ROLE_MAINTENANCE || role === ROLE_TECNOALL;
 }
 
 function puedeConfigurarNiveles(user) {

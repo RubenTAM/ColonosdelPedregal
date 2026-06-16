@@ -68,7 +68,8 @@ function userIsAdmin(user) {
 }
 
 function userCanOperate(user) {
-  return userIsAdmin(user) || normalizeRole(user?.role) === "mantenimiento";
+  const role = normalizeRole(user?.role);
+  return userIsAdmin(user) || role === "mantenimiento" || role === ROLE_TECNOALL;
 }
 
 function userCanConfigureLevels(user) {
