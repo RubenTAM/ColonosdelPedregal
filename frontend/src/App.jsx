@@ -48,20 +48,42 @@ const CABO_VIEJO_BYPASS_CONFIG = {
 };
 
 const ASSIGNMENT_FEEDBACK_TIMEOUT_MS = 30 * 1000;
+const ROLE_TECNOALL = "tecnoall";
 const COMMUNICATION_CHANNELS = [
   { key: "antenna", label: "Antena" },
   { key: "telcel", label: "Telcel" },
 ];
 const REDUNDANT_COMMUNICATION_CHANNELS = [
-  ...COMMUNICATION_CHANNELS,
-  { key: "planta", label: "Planta" },
+  { key: "antenna", label: "Antena (Desde CV)" },
+  { key: "telcel", label: "Telcel" },
+  { key: "planta", label: "Antena (Desde Planta)" },
 ];
 
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
+}
+
+function userIsAdmin(user) {
+  return user?.username === "admin" && normalizeRole(user?.role) === "admin";
+}
+
 function userCanOperate(user) {
-  return (
-    (user?.username === "admin" && user?.role === "admin") ||
-    user?.role === "mantenimiento"
-  );
+  return userIsAdmin(user) || normalizeRole(user?.role) === "mantenimiento";
+}
+
+function userCanConfigureLevels(user) {
+  return userIsAdmin(user) || normalizeRole(user?.role) === ROLE_TECNOALL;
+}
+
+function userCanViewCommunicationDiagnostics(user) {
+  return userCanConfigureLevels(user);
+}
+
+function formatRoleLabel(role) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === ROLE_TECNOALL
+    ? "TecnoAll"
+    : String(role || "").toUpperCase();
 }
 
 function escalarNivel(valor, min, max) {
@@ -417,7 +439,7 @@ export default function App() {
   });
 
   const openConfigModal = (tankKey) => {
-    if (!userCanOperate(authUser)) return;
+    if (!userCanOperate(authUser) && !userCanConfigureLevels(authUser)) return;
 
     const current = levelConfig[tankKey] || { min: 0, max: 140 };
 
@@ -661,7 +683,7 @@ export default function App() {
   };
 
   const saveTankConfig = () => {
-    if (!userCanOperate(authUser)) return;
+    if (!userCanConfigureLevels(authUser)) return;
     if (!selectedTank) return;
     const min = Number(configForm.min);
     const max = Number(configForm.max);
@@ -953,7 +975,7 @@ export default function App() {
     if (!authUser) return;
 
     const obtenerNiveles = () => {
-      fetch("/api/niveles")
+      apiFetch("/api/niveles")
         .then((res) => res.json())
         .then((data) => {
           setNiveles(data.niveles || {});
@@ -1339,8 +1361,12 @@ export default function App() {
     );
   }
 
-  const isAdmin = authUser.username === "admin" && authUser.role === "admin";
+  const isAdmin = userIsAdmin(authUser);
   const canOperate = userCanOperate(authUser);
+  const canConfigureLevels = userCanConfigureLevels(authUser);
+  const canOpenTankTools = canOperate || canConfigureLevels;
+  const canViewCommunicationDiagnostics =
+    userCanViewCommunicationDiagnostics(authUser);
   const filtroAlarmasHoy = getFiltroAlarmasHoy();
   const alarmasFiltroEsHoy =
     alarmasFiltro.startDate === filtroAlarmasHoy.startDate &&
@@ -1506,7 +1532,7 @@ export default function App() {
           <div className="topbar__user topbar__user--auth">
             <span>
               BIENVENIDO {authUser.username.toUpperCase()} (
-              {authUser.role.toUpperCase()})
+              {formatRoleLabel(authUser.role)})
             </span>
             <button className="logout-btn" onClick={handleLogout}>
               Salir
@@ -1529,6 +1555,7 @@ export default function App() {
                 onOpenConfig={() => openConfigModal("planta")}
                 onOpenGraph={() => openGraphModal("planta")}
                 canOperate={canOperate}
+                canConfigure={canOpenTankTools}
               />
 
               <CaboViejoCard
@@ -1552,7 +1579,7 @@ export default function App() {
                   openPumpConfirm(pumpName, mode)
                 }
                 canRequestMode={canOperate}
-                canConfigure={canOperate}
+                canConfigure={canOpenTankTools}
               />
 
               <FalconeCard
@@ -1563,7 +1590,8 @@ export default function App() {
                 heartbeatNow={heartbeatNow}
                 onOpenConfig={() => openConfigModal("falcone")}
                 onOpenGraph={() => openGraphModal("falcone")}
-                canConfigure={canOperate}
+                canConfigure={canConfigureLevels}
+                canViewCommunicationDiagnostics={canViewCommunicationDiagnostics}
               />
             </div>
 
@@ -1584,7 +1612,10 @@ export default function App() {
                         heartbeatNow={heartbeatNow}
                         onOpenConfig={() => openConfigModal(item.tankKey)}
                         onOpenGraph={() => openGraphModal(item.tankKey)}
-                        canConfigure={canOperate}
+                        canConfigure={canConfigureLevels}
+                        canViewCommunicationDiagnostics={
+                          canViewCommunicationDiagnostics
+                        }
                       />
                     )
                   )}
@@ -1959,6 +1990,7 @@ export default function App() {
                     >
                       <option value="viewer">viewer</option>
                       <option value="mantenimiento">mantenimiento</option>
+                      <option value={ROLE_TECNOALL}>TecnoAll</option>
                     </select>
                   </div>
 
@@ -1993,7 +2025,8 @@ export default function App() {
                       <div>
                         <strong>{user.username}</strong>
                         <p>
-                          Rol: {user.role} | Creado: {user.created_at}
+                          Rol: {formatRoleLabel(user.role)} | Creado:{" "}
+                          {user.created_at}
                         </p>
                       </div>
 
@@ -2049,7 +2082,8 @@ export default function App() {
             setForm={setConfigForm}
             onClose={closeConfigModal}
             onSave={saveTankConfig}
-            isAdmin={canOperate}
+            canConfigureLevels={canConfigureLevels}
+            canOperate={canOperate}
             plantaBypassActive={Number(plantaBotones?.bypassPlanta) === 1}
             plantaBypassRequest={plantaBypassRequest}
             onTogglePlantaBypass={togglePlantaBypass}
@@ -2161,6 +2195,7 @@ function PlantaCard({
   onOpenConfig,
   onOpenGraph,
   canOperate = false,
+  canConfigure = false,
 }) {
   const bypassPlantaActivo = Number(plantaBotones?.bypassPlanta) === 1;
   const bombasHabilitadas = Number(plantaBotones?.bombasHabilitadas) === 1;
@@ -2194,7 +2229,7 @@ function PlantaCard({
         onOpenConfig={onOpenConfig}
         heartbeat={heartbeat}
         heartbeatNow={heartbeatNow}
-        disableActions={cardDisabled || !canOperate}
+        disableActions={cardDisabled || (!canOperate && !canConfigure)}
       />
       <TankGauge level={level} rawLevel={rawLevel} />
 
@@ -2451,6 +2486,7 @@ function FalconeCard({
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
+  canViewCommunicationDiagnostics = false,
 }) {
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
@@ -2464,6 +2500,8 @@ function FalconeCard({
       <CardHeader
         title="FALCONE"
         onOpenConfig={onOpenConfig}
+        heartbeat={!canViewCommunicationDiagnostics ? heartbeat : undefined}
+        heartbeatNow={heartbeatNow}
         disableActions={communicationOffline || !canConfigure}
       />
       <TankGauge level={level} rawLevel={rawLevel} />
@@ -2474,7 +2512,9 @@ function FalconeCard({
       </div>
 
       <div className="footer-pills footer-pills--stacked">
-        <ChannelIndicators heartbeat={heartbeat} heartbeatNow={heartbeatNow} />
+        {canViewCommunicationDiagnostics && (
+          <ChannelIndicators heartbeat={heartbeat} heartbeatNow={heartbeatNow} />
+        )}
         <div className="footer-pill">PLC: {plc}</div>
       </div>
 
@@ -2493,11 +2533,13 @@ function MiniTankCard({
   onOpenConfig,
   onOpenGraph,
   canConfigure = false,
+  canViewCommunicationDiagnostics = false,
 }) {
   const safeLevel = Math.max(0, Math.min(100, Number(level) || 0));
   const heartbeatMeta = resolveHeartbeatMeta(heartbeat, heartbeatNow);
   const communicationOffline = !heartbeatMeta.isOnline;
-  const hasChannelIndicators = Boolean(heartbeat?.channels);
+  const hasChannelIndicators =
+    canViewCommunicationDiagnostics && Boolean(heartbeat?.channels);
 
   return (
     <article
@@ -3197,7 +3239,8 @@ function LevelConfigModal({
   setForm,
   onClose,
   onSave,
-  isAdmin = false,
+  canConfigureLevels = false,
+  canOperate = false,
   plantaBypassActive = false,
   plantaBypassRequest = null,
   onTogglePlantaBypass,
@@ -3243,9 +3286,9 @@ function LevelConfigModal({
             active ? "level-modal__bypass--active" : "level-modal__bypass--inactive"
           }`}
           onClick={() => onToggleCaboViejoBypass?.(targetKey)}
-          disabled={busy || !isAdmin}
+          disabled={busy || !canOperate}
           title={
-            isAdmin
+            canOperate
               ? active
                 ? `Desactivar bypass ${config.label.toLowerCase()}`
                 : `Activar bypass ${config.label.toLowerCase()}`
@@ -3277,9 +3320,9 @@ function LevelConfigModal({
               plantaBypassActive ? "level-modal__bypass--active" : "level-modal__bypass--inactive"
             }`}
             onClick={onTogglePlantaBypass}
-            disabled={bypassBusy || !isAdmin}
+            disabled={bypassBusy || !canOperate}
             title={
-              isAdmin
+              canOperate
                 ? plantaBypassActive
                   ? "Desactivar bypass de planta"
                   : "Activar bypass de planta"
@@ -3331,6 +3374,7 @@ function LevelConfigModal({
             <input
               type="number"
               value={form.min}
+              disabled={!canConfigureLevels}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, min: e.target.value }))
               }
@@ -3343,6 +3387,7 @@ function LevelConfigModal({
             <input
               type="number"
               value={form.max}
+              disabled={!canConfigureLevels}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, max: e.target.value }))
               }
@@ -3350,7 +3395,16 @@ function LevelConfigModal({
             />
           </div>
 
-          <button className="level-modal__save" onClick={onSave}>
+          <button
+            className="level-modal__save"
+            onClick={onSave}
+            disabled={!canConfigureLevels}
+            title={
+              canConfigureLevels
+                ? "Guardar escalamiento"
+                : "Solo admin o TecnoAll pueden modificar el escalamiento"
+            }
+          >
             GUARDAR
           </button>
 

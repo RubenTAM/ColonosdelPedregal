@@ -35,6 +35,11 @@ const MAYTAPI_GROUP_PARTICIPANTS = (
   .map((value) => value.trim())
   .filter(Boolean);
 
+const ROLE_ADMIN = "admin";
+const ROLE_MAINTENANCE = "mantenimiento";
+const ROLE_TECNOALL = "tecnoall";
+const ROLE_VIEWER = "viewer";
+
 const DEFAULT_LEVEL_CONFIG = {
   planta: { min: 0, max: 140 },
   cabo_viejo: { min: 0, max: 140 },
@@ -1026,6 +1031,21 @@ function construirHeartbeatStatus() {
   }, {});
 }
 
+function ocultarDiagnosticoHeartbeat(status) {
+  return Object.keys(status).reduce((acc, key) => {
+    const value = status[key];
+
+    if (value?.channels) {
+      const { channels, source, ...publicStatus } = value;
+      acc[key] = publicStatus;
+      return acc;
+    }
+
+    acc[key] = value;
+    return acc;
+  }, {});
+}
+
 function guardarEventoSistema({
   zona,
   equipo,
@@ -1341,6 +1361,48 @@ function createToken(user) {
   );
 }
 
+function normalizarRolUsuario(user) {
+  const role = String(user?.role || "").trim().toLowerCase();
+
+  if (user?.username === "admin") return ROLE_ADMIN;
+  if (["mantenimiento", "mtto"].includes(role)) return ROLE_MAINTENANCE;
+  if (["tecnoall", "tecno_all", "tecno all"].includes(role)) {
+    return ROLE_TECNOALL;
+  }
+
+  return ROLE_VIEWER;
+}
+
+function esAdmin(user) {
+  return user?.username === "admin" && normalizarRolUsuario(user) === ROLE_ADMIN;
+}
+
+function puedeOperar(user) {
+  return esAdmin(user) || normalizarRolUsuario(user) === ROLE_MAINTENANCE;
+}
+
+function puedeConfigurarNiveles(user) {
+  return esAdmin(user) || normalizarRolUsuario(user) === ROLE_TECNOALL;
+}
+
+function puedeVerDiagnosticoHeartbeat(user) {
+  return puedeConfigurarNiveles(user);
+}
+
+function normalizarRolSolicitado(role) {
+  const requestedRole = String(role || "").trim().toLowerCase();
+
+  if (["mantenimiento", "mtto"].includes(requestedRole)) {
+    return ROLE_MAINTENANCE;
+  }
+
+  if (["tecnoall", "tecno_all", "tecno all"].includes(requestedRole)) {
+    return ROLE_TECNOALL;
+  }
+
+  return ROLE_VIEWER;
+}
+
 function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.replace("Bearer ", "").trim();
@@ -1359,18 +1421,24 @@ function verifyToken(req, res, next) {
 }
 
 function onlyAdmin(req, res, next) {
-  if (req.user.username !== "admin" || req.user.role !== "admin") {
+  if (!esAdmin(req.user)) {
     return res.status(403).json({ error: "Solo admin puede hacer esto" });
   }
   next();
 }
 
 function canOperate(req, res, next) {
-  const isAdminUser = req.user.username === "admin" && req.user.role === "admin";
-  const isMaintenanceUser = req.user.role === "mantenimiento";
-
-  if (!isAdminUser && !isMaintenanceUser) {
+  if (!puedeOperar(req.user)) {
     return res.status(403).json({ error: "No tienes permiso para modificar" });
+  }
+  next();
+}
+
+function canConfigureLevels(req, res, next) {
+  if (!puedeConfigurarNiveles(req.user)) {
+    return res
+      .status(403)
+      .json({ error: "No tienes permiso para configurar niveles" });
   }
   next();
 }
@@ -1397,27 +1465,15 @@ app.post("/api/auth/login", (req, res) => {
         return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
       }
 
-      usersDb.run(
-        `INSERT INTO login_logs (username, role) VALUES (?, ?)`,
-        [
-          user.username,
-          user.username === "admin"
-            ? "admin"
-            : user.role === "mantenimiento"
-              ? "mantenimiento"
-              : "viewer",
-        ]
-      );
-
       const normalizedUser = {
         ...user,
-        role:
-          user.username === "admin"
-            ? "admin"
-            : user.role === "mantenimiento"
-              ? "mantenimiento"
-              : "viewer",
+        role: normalizarRolUsuario(user),
       };
+
+      usersDb.run(
+        `INSERT INTO login_logs (username, role) VALUES (?, ?)`,
+        [user.username, normalizedUser.role]
+      );
 
       const token = createToken(normalizedUser);
 
@@ -1461,10 +1517,7 @@ app.post("/api/users", verifyToken, onlyAdmin, (req, res) => {
     return res.status(400).json({ error: "Completa usuario y contraseña" });
   }
 
-  const requestedRole = String(role || "").trim().toLowerCase();
-  const finalRole = ["mantenimiento", "mtto"].includes(requestedRole)
-    ? "mantenimiento"
-    : "viewer";
+  const finalRole = normalizarRolSolicitado(role);
   const hash = bcrypt.hashSync(password, 10);
 
   usersDb.run(
@@ -1555,23 +1608,27 @@ app.get("/api/level-config", verifyToken, (req, res) => {
   );
 });
 
-app.post("/api/level-config/:tankKey", verifyToken, canOperate, (req, res) => {
-  const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
-  const defaults = DEFAULT_LEVEL_CONFIG[tankKey];
+app.post(
+  "/api/level-config/:tankKey",
+  verifyToken,
+  canConfigureLevels,
+  (req, res) => {
+    const tankKey = String(req.params.tankKey || "").trim().toLowerCase();
+    const defaults = DEFAULT_LEVEL_CONFIG[tankKey];
 
-  if (!defaults) {
-    return res.status(400).json({ error: "Tanque no valido" });
-  }
+    if (!defaults) {
+      return res.status(400).json({ error: "Tanque no valido" });
+    }
 
-  const min = Number(req.body.min);
-  const max = Number(req.body.max);
+    const min = Number(req.body.min);
+    const max = Number(req.body.max);
 
-  if (Number.isNaN(min) || Number.isNaN(max)) {
-    return res.status(400).json({ error: "Min y max deben ser numericos" });
-  }
+    if (Number.isNaN(min) || Number.isNaN(max)) {
+      return res.status(400).json({ error: "Min y max deben ser numericos" });
+    }
 
-  db.run(
-    `
+    db.run(
+      `
     INSERT INTO level_config (tank_key, min, max, updated_at)
     VALUES (?, ?, ?, CURRENT_TIMESTAMP)
     ON CONFLICT(tank_key) DO UPDATE SET
@@ -1579,23 +1636,24 @@ app.post("/api/level-config/:tankKey", verifyToken, canOperate, (req, res) => {
       max = excluded.max,
       updated_at = CURRENT_TIMESTAMP
     `,
-    [tankKey, min, max],
-    function (err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
+      [tankKey, min, max],
+      function (err) {
+        if (err) {
+          return res.status(500).json({ error: err.message });
+        }
 
-      res.json({
-        ok: true,
-        config: {
-          tankKey,
-          min,
-          max,
-        },
-      });
-    }
-  );
-});
+        res.json({
+          ok: true,
+          config: {
+            tankKey,
+            min,
+            max,
+          },
+        });
+      }
+    );
+  }
+);
 
 app.post("/api/cabo-viejo/bombas/:bomba/mode", verifyToken, canOperate, (req, res) => {
   const bomba = String(req.params.bomba || "").trim().toLowerCase();
@@ -1742,17 +1800,19 @@ app.post("/api/planta/bombas-toggle", verifyToken, canOperate, (req, res) => {
   });
 });
 
-/* ---------- RUTAS DE NIVELES LIBRES ---------- */
-/* ESTO ES LO IMPORTANTE PARA NO ROMPER MQTT/DASHBOARD */
+/* ---------- RUTAS DE NIVELES ---------- */
 
-app.get("/api/niveles", (req, res) => {
+app.get("/api/niveles", verifyToken, (req, res) => {
   const levelSources = obtenerNivelSourceStatus();
+  const heartbeatStatus = construirHeartbeatStatus();
+  const puedeVerDiagnostico = puedeVerDiagnosticoHeartbeat(req.user);
 
-  res.json({
+  const payload = {
     niveles,
     plcStatus,
-    heartbeatStatus: construirHeartbeatStatus(),
-    levelSources,
+    heartbeatStatus: puedeVerDiagnostico
+      ? heartbeatStatus
+      : ocultarDiagnosticoHeartbeat(heartbeatStatus),
     alertasWhatsApp: ultimasAlertasWhatsApp,
     maytapi: {
       configured: maytapiConfigurado(true),
@@ -1764,7 +1824,13 @@ app.get("/api/niveles", (req, res) => {
     bombasCaboviejo,
     caboViejoComunicacion,
     plantaBotones,
-  });
+  };
+
+  if (puedeVerDiagnostico) {
+    payload.levelSources = levelSources;
+  }
+
+  res.json(payload);
 });
 
 app.get("/api/alarmas", verifyToken, (req, res) => {
