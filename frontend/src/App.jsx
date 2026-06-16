@@ -58,6 +58,49 @@ const REDUNDANT_COMMUNICATION_CHANNELS = [
   { key: "telcel", label: "Telcel" },
   { key: "planta", label: "Antena (Desde Planta)" },
 ];
+const MAP_IMAGE_SRC = "/maps/colonos-antenas.png";
+const ANTENNA_POINTS = [
+  {
+    id: "camino-galento",
+    name: "Antena 1",
+    zone: "Camino Galento",
+    x: 46.4,
+    y: 48.3,
+    detail: "Cobertura poniente del circuito central",
+  },
+  {
+    id: "camino-del-club",
+    name: "Antena 2",
+    zone: "Camino del Club",
+    x: 52.6,
+    y: 67.8,
+    detail: "Nodo central de enlace",
+  },
+  {
+    id: "camino-del-colegio",
+    name: "Antena 3",
+    zone: "Camino del Colegio",
+    x: 64.7,
+    y: 34.1,
+    detail: "Enlace norte",
+  },
+  {
+    id: "camino-grande",
+    name: "Antena 4",
+    zone: "Camino Grande",
+    x: 72.5,
+    y: 48.0,
+    detail: "Enlace oriente",
+  },
+  {
+    id: "camino-del-mar",
+    name: "Antena 5",
+    zone: "Camino del Cerro / Camino del Mar",
+    x: 84.3,
+    y: 90.5,
+    detail: "Cobertura sur-oriente",
+  },
+];
 
 function normalizeRole(role) {
   return String(role || "").trim().toLowerCase();
@@ -1455,13 +1498,13 @@ export default function App() {
           </button>
 
           <button
-            className={`nav-item nav-item--maintenance ${
-              activeView === "mantenimiento" ? "nav-item--active" : ""
+            className={`nav-item nav-item--map ${
+              activeView === "mapa" ? "nav-item--active" : ""
             }`}
-            onClick={() => setActiveView("mantenimiento")}
+            onClick={() => setActiveView("mapa")}
           >
-            <span className="nav-item__icon">ðŸ› ï¸</span>
-            <span>Mantenimiento</span>
+            <span className="nav-item__icon">M</span>
+            <span>Mapa</span>
           </button>
 
           <button
@@ -1520,10 +1563,10 @@ export default function App() {
                 </>
               )}
 
-              {activeView === "mantenimiento" && (
+              {activeView === "mapa" && (
                 <>
-                  <h1>Mantenimiento</h1>
-                  <p>Vista tecnica y operativa de Cabo Viejo</p>
+                  <h1>Mapa</h1>
+                  <p>Antenas de Colonos del Pedregal</p>
                 </>
               )}
 
@@ -1818,17 +1861,9 @@ export default function App() {
           </section>
         )}
 
-        {activeView === "mantenimiento" && (
+        {activeView === "mapa" && (
           <section className="content">
-            <div className="maintenance-layout">
-              <div className="maintenance-empty-card">
-                <h3>Sin elementos por ahora</h3>
-                <p>
-                  Esta seccion queda libre temporalmente mientras seguimos
-                  reorganizando mantenimiento.
-                </p>
-              </div>
-            </div>
+            <ColonosMapView />
           </section>
         )}
 
@@ -2159,6 +2194,95 @@ export default function App() {
           onConfirm={togglePlantaBombas}
         />
       )}
+    </div>
+  );
+}
+
+function ColonosMapView() {
+  const [selectedAntennaId, setSelectedAntennaId] = useState(
+    ANTENNA_POINTS[0]?.id
+  );
+  const selectedAntenna =
+    ANTENNA_POINTS.find((antenna) => antenna.id === selectedAntennaId) ||
+    ANTENNA_POINTS[0];
+
+  return (
+    <div className="map-layout">
+      <section className="map-board">
+        <div className="map-board__header">
+          <div>
+            <h2>Colonos del Pedregal</h2>
+            <span>Los Cabos</span>
+          </div>
+
+          <div className="map-count">
+            <strong>{ANTENNA_POINTS.length}</strong>
+            <span>Antenas</span>
+          </div>
+        </div>
+
+        <div className="map-frame">
+          <img
+            className="map-frame__image"
+            src={MAP_IMAGE_SRC}
+            alt="Mapa de antenas de Colonos del Pedregal"
+          />
+
+          {ANTENNA_POINTS.map((antenna, index) => {
+            const selected = antenna.id === selectedAntenna?.id;
+
+            return (
+              <button
+                type="button"
+                key={antenna.id}
+                className={`antenna-marker ${
+                  selected ? "antenna-marker--selected" : ""
+                }`}
+                style={{ left: `${antenna.x}%`, top: `${antenna.y}%` }}
+                onClick={() => setSelectedAntennaId(antenna.id)}
+                aria-label={antenna.name}
+                aria-pressed={selected}
+                title={`${antenna.name} - ${antenna.zone}`}
+              >
+                <span className="antenna-marker__pulse" />
+                <span className="antenna-marker__pin">{index + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <aside className="map-panel">
+        <div className="map-panel__selected">
+          <span className="map-panel__eyebrow">Seleccionada</span>
+          <h3>{selectedAntenna.name}</h3>
+          <p>{selectedAntenna.zone}</p>
+          <div className="map-panel__detail">{selectedAntenna.detail}</div>
+          <div className="map-status map-status--active">
+            <span />
+            Activa
+          </div>
+        </div>
+
+        <div className="map-panel__list">
+          {ANTENNA_POINTS.map((antenna, index) => (
+            <button
+              type="button"
+              key={antenna.id}
+              className={`map-panel__item ${
+                antenna.id === selectedAntenna?.id
+                  ? "map-panel__item--active"
+                  : ""
+              }`}
+              onClick={() => setSelectedAntennaId(antenna.id)}
+            >
+              <span>{index + 1}</span>
+              <strong>{antenna.name}</strong>
+              <small>{antenna.zone}</small>
+            </button>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 }
