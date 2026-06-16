@@ -46,7 +46,14 @@ const DEFAULT_LEVEL_CONFIG = {
   cuadrada: { min: 0, max: 140 },
 };
 
-const HEARTBEAT_TIMEOUT_MS = 20 * 60 * 1000;
+const HEARTBEAT_DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
+const HEARTBEAT_EXTENDED_TIMEOUT_MS = 60 * 60 * 1000;
+const HEARTBEAT_EXTENDED_TIMEOUT_KEYS = new Set([
+  "cinco",
+  "seis",
+  "marilu",
+  "pacifico",
+]);
 const HEARTBEAT_CHECK_INTERVAL_MS = 5000;
 const REDUNDANT_PRIMARY_SOURCE = "antenna";
 const REDUNDANT_FALLBACK_SOURCE = "telcel";
@@ -59,6 +66,12 @@ function crearHeartbeatState() {
     isOnline: true,
     hasValue: false,
   };
+}
+
+function obtenerHeartbeatTimeoutMs(key) {
+  return HEARTBEAT_EXTENDED_TIMEOUT_KEYS.has(key)
+    ? HEARTBEAT_EXTENDED_TIMEOUT_MS
+    : HEARTBEAT_DEFAULT_TIMEOUT_MS;
 }
 
 /* ESTADO EN MEMORIA */
@@ -711,7 +724,7 @@ function heartbeatRedundanteEstaOnline(key, source) {
     0,
     Date.now() - (Number.isFinite(lastChangedAt) ? lastChangedAt : Date.now())
   );
-  return elapsedMs < HEARTBEAT_TIMEOUT_MS;
+  return elapsedMs < obtenerHeartbeatTimeoutMs(key);
 }
 
 function resolverFuenteComunicacionRedundante(key) {
@@ -895,13 +908,18 @@ function registrarAlarmaConexion(key) {
   return mensaje;
 }
 
-function construirHeartbeatDetalle(state, currentValue, now) {
+function construirHeartbeatDetalle(
+  state,
+  currentValue,
+  now,
+  timeoutMs = HEARTBEAT_DEFAULT_TIMEOUT_MS
+) {
   const lastChangedAt = Number(state?.lastChangedAt);
   const elapsedMs = Math.max(
     0,
     now - (Number.isFinite(lastChangedAt) ? lastChangedAt : now)
   );
-  const remainingMs = Math.max(0, HEARTBEAT_TIMEOUT_MS - elapsedMs);
+  const remainingMs = Math.max(0, timeoutMs - elapsedMs);
 
   return {
     currentValue,
@@ -909,8 +927,8 @@ function construirHeartbeatDetalle(state, currentValue, now) {
     lastChangedAt: state?.lastChangedAt ?? 0,
     elapsedMs,
     remainingMs,
-    timeoutMs: HEARTBEAT_TIMEOUT_MS,
-    isOnline: elapsedMs < HEARTBEAT_TIMEOUT_MS,
+    timeoutMs,
+    isOnline: elapsedMs < timeoutMs,
   };
 }
 
@@ -920,7 +938,8 @@ function construirComunicacionRedundante(key, now) {
     acc[source] = construirHeartbeatDetalle(
       state,
       state.hasValue ? state.lastValue : null,
-      now
+      now,
+      obtenerHeartbeatTimeoutMs(key)
     );
     return acc;
   }, {});
@@ -940,8 +959,12 @@ function obtenerHeartbeatOnline(key, now) {
     return construirComunicacionRedundante(key, now).isOnline;
   }
 
-  return construirHeartbeatDetalle(heartbeatState[key], plcStatus[key], now)
-    .isOnline;
+  return construirHeartbeatDetalle(
+    heartbeatState[key],
+    plcStatus[key],
+    now,
+    obtenerHeartbeatTimeoutMs(key)
+  ).isOnline;
 }
 
 function revisarHeartbeatsYAlertas() {
@@ -984,7 +1007,12 @@ function construirHeartbeatStatus() {
       lastValue: null,
       lastChangedAt: 0,
     };
-    acc[key] = construirHeartbeatDetalle(state, plcStatus[key], now);
+    acc[key] = construirHeartbeatDetalle(
+      state,
+      plcStatus[key],
+      now,
+      obtenerHeartbeatTimeoutMs(key)
+    );
 
     return acc;
   }, {});
