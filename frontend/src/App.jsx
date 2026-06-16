@@ -365,6 +365,8 @@ export default function App() {
   });
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
+  const [heartbeatDisconnectCounters, setHeartbeatDisconnectCounters] =
+    useState([]);
   const [alarmas, setAlarmas] = useState([]);
   const [alarmasLoading, setAlarmasLoading] = useState(false);
   const [alarmasFiltro, setAlarmasFiltro] = useState(getFiltroAlarmasHoy);
@@ -950,6 +952,12 @@ export default function App() {
   }, [activeView]);
 
   useEffect(() => {
+    if (alarmCardView !== "counters") return;
+    if (userCanViewCommunicationDiagnostics(authUser)) return;
+    setAlarmCardView("log");
+  }, [authUser, alarmCardView]);
+
+  useEffect(() => {
     const token = localStorage.getItem("auth_token");
 
     if (!token) {
@@ -982,6 +990,11 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});
+          setHeartbeatDisconnectCounters(
+            Array.isArray(data.heartbeatDisconnectCounters)
+              ? data.heartbeatDisconnectCounters
+              : []
+          );
           setBombasCaboviejo(data.bombasCaboviejo || {});
           setCaboViejoComunicacion(data.caboViejoComunicacion || {});
           setPlantaBotones(data.plantaBotones || {});
@@ -1730,6 +1743,11 @@ export default function App() {
                   )}
                 </div>
                   </div>
+                ) : alarmCardView === "counters" &&
+                  canViewCommunicationDiagnostics ? (
+                  <DisconnectCountersPanel
+                    counters={heartbeatDisconnectCounters}
+                  />
                 ) : (
                   <div className="alarm-card-content alarm-card-content--chart">
                     <div className="alarm-log-header">
@@ -1770,6 +1788,19 @@ export default function App() {
                     aria-label="Ver log de alarmas"
                     aria-pressed={alarmCardView === "log"}
                   />
+                  {canViewCommunicationDiagnostics && (
+                    <button
+                      type="button"
+                      className={`alarm-card-dot ${
+                        alarmCardView === "counters"
+                          ? "alarm-card-dot--active"
+                          : ""
+                      }`}
+                      onClick={() => setAlarmCardView("counters")}
+                      aria-label="Ver contadores de desconexiones"
+                      aria-pressed={alarmCardView === "counters"}
+                    />
+                  )}
                   <button
                     type="button"
                     className={`alarm-card-dot ${
@@ -2716,6 +2747,58 @@ function BooleanChannelIndicators({ status }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DisconnectCountersPanel({ counters = [] }) {
+  return (
+    <div className="alarm-card-content alarm-card-content--counters">
+      <div className="alarm-log-header">
+        <h3>Contadores de desconexiones</h3>
+      </div>
+
+      <div className="disconnect-counters">
+        {counters.length === 0 ? (
+          <div className="alarm-empty-state">
+            <div className="alarm-empty-icon">!</div>
+            <p>Sin contadores disponibles</p>
+            <small>Aqui apareceran las perdidas de senal redundante.</small>
+          </div>
+        ) : (
+          counters.map((tank) => (
+            <div className="disconnect-counter-group" key={tank.key}>
+              <div className="disconnect-counter-group__title">
+                {tank.label}
+              </div>
+
+              <div className="disconnect-counter-list">
+                {(tank.channels || []).map((channel) => (
+                  <div
+                    className="disconnect-counter-row"
+                    key={`${tank.key}-${channel.source}`}
+                  >
+                    <div>
+                      <strong>{channel.label}</strong>
+                      <span>
+                        {channel.lastDisconnectedAt
+                          ? `Ultima: ${formatLocalEventDate(
+                              channel.lastDisconnectedAt
+                            )}`
+                          : "Sin desconexiones"}
+                      </span>
+                    </div>
+
+                    <div className="disconnect-counter-value">
+                      {Number(channel.count) || 0}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

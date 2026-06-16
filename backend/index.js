@@ -68,6 +68,11 @@ const REDUNDANT_SOURCES = [
   REDUNDANT_FALLBACK_SOURCE,
   REDUNDANT_PLANTA_SOURCE,
 ];
+const REDUNDANT_SOURCE_LABELS = {
+  antenna: "Antena (Desde CV)",
+  telcel: "Telcel",
+  planta: "Antena (Desde Planta)",
+};
 
 function crearHeartbeatState() {
   return {
@@ -139,6 +144,31 @@ let redundantHeartbeatState = Object.keys(nivelesRedundantes).reduce(
   (acc, key) => {
     acc[key] = REDUNDANT_SOURCES.reduce((sources, source) => {
       sources[source] = crearHeartbeatState();
+      return sources;
+    }, {});
+    return acc;
+  },
+  {}
+);
+
+let redundantHeartbeatOnlineState = Object.keys(nivelesRedundantes).reduce(
+  (acc, key) => {
+    acc[key] = REDUNDANT_SOURCES.reduce((sources, source) => {
+      sources[source] = true;
+      return sources;
+    }, {});
+    return acc;
+  },
+  {}
+);
+
+let heartbeatDisconnectCounters = Object.keys(nivelesRedundantes).reduce(
+  (acc, key) => {
+    acc[key] = REDUNDANT_SOURCES.reduce((sources, source) => {
+      sources[source] = {
+        count: 0,
+        lastDisconnectedAt: null,
+      };
       return sources;
     }, {});
     return acc;
@@ -743,6 +773,110 @@ function heartbeatRedundanteEstaOnline(key, source) {
   return elapsedMs < obtenerHeartbeatTimeoutMs(key);
 }
 
+function construirContadoresDesconexionHeartbeat() {
+  return Object.keys(nivelesRedundantes).map((key) => ({
+    key,
+    label: heartbeatLabels[key] || key,
+    channels: REDUNDANT_SOURCES.map((source) => {
+      const counter = heartbeatDisconnectCounters[key]?.[source] || {
+        count: 0,
+        lastDisconnectedAt: null,
+      };
+
+      return {
+        source,
+        label: REDUNDANT_SOURCE_LABELS[source] || source,
+        count: Number(counter.count) || 0,
+        lastDisconnectedAt: counter.lastDisconnectedAt || null,
+      };
+    }),
+  }));
+}
+
+function cargarContadoresDesconexionHeartbeat() {
+  db.all(
+    `
+    SELECT zona_key, source, disconnect_count, last_disconnected_at
+    FROM heartbeat_disconnect_counters
+    `,
+    [],
+    (err, rows) => {
+      if (err) {
+        console.error("Error cargando contadores de desconexion:", err.message);
+        return;
+      }
+
+      rows.forEach((row) => {
+        const key = row.zona_key;
+        const source = row.source;
+
+        if (!heartbeatDisconnectCounters[key]?.[source]) return;
+
+        heartbeatDisconnectCounters[key][source] = {
+          count: Number(row.disconnect_count) || 0,
+          lastDisconnectedAt: row.last_disconnected_at || null,
+        };
+      });
+    }
+  );
+}
+
+function registrarDesconexionHeartbeatCanal(key, source) {
+  if (!heartbeatDisconnectCounters[key]?.[source]) return;
+
+  const fecha = fechaLocalTijuana();
+  heartbeatDisconnectCounters[key][source] = {
+    count: (Number(heartbeatDisconnectCounters[key][source].count) || 0) + 1,
+    lastDisconnectedAt: fecha,
+  };
+
+  db.run(
+    `
+    INSERT INTO heartbeat_disconnect_counters
+      (zona_key, source, disconnect_count, last_disconnected_at, updated_at)
+    VALUES (?, ?, 1, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(zona_key, source) DO UPDATE SET
+      disconnect_count = disconnect_count + 1,
+      last_disconnected_at = excluded.last_disconnected_at,
+      updated_at = CURRENT_TIMESTAMP
+    `,
+    [key, source, fecha],
+    (err) => {
+      if (err) {
+        console.error("Error guardando contador de desconexion:", err.message);
+      }
+    }
+  );
+}
+
+function revisarHeartbeatsRedundantes(now) {
+  Object.keys(nivelesRedundantes).forEach((key) => {
+    REDUNDANT_SOURCES.forEach((source) => {
+      const state = redundantHeartbeatState[key]?.[source];
+
+      if (!state?.hasValue) return;
+
+      const isOnline = construirHeartbeatDetalle(
+        state,
+        state.lastValue,
+        now,
+        obtenerHeartbeatTimeoutMs(key)
+      ).isOnline;
+      const wasOnline = redundantHeartbeatOnlineState[key]?.[source] !== false;
+
+      if (wasOnline && !isOnline) {
+        registrarDesconexionHeartbeatCanal(key, source);
+      }
+
+      if (!redundantHeartbeatOnlineState[key]) {
+        redundantHeartbeatOnlineState[key] = {};
+      }
+
+      redundantHeartbeatOnlineState[key][source] = isOnline;
+    });
+  });
+}
+
 function obtenerFuentesRedundantesPorPrioridad(preferredSource) {
   return [
     preferredSource,
@@ -983,6 +1117,8 @@ function obtenerHeartbeatOnline(key, now) {
 function revisarHeartbeatsYAlertas() {
   const now = Date.now();
 
+  revisarHeartbeatsRedundantes(now);
+
   Object.keys(plcStatus).forEach((key) => {
     const state = heartbeatState[key];
     if (!state) return;
@@ -1129,6 +1265,7 @@ const topics = [
 
 const client = mqtt.connect(MQTT_URL);
 
+cargarContadoresDesconexionHeartbeat();
 setInterval(revisarHeartbeatsYAlertas, HEARTBEAT_CHECK_INTERVAL_MS);
 
 client.on("connect", () => {
@@ -1829,6 +1966,8 @@ app.get("/api/niveles", verifyToken, (req, res) => {
 
   if (puedeVerDiagnostico) {
     payload.levelSources = levelSources;
+    payload.heartbeatDisconnectCounters =
+      construirContadoresDesconexionHeartbeat();
   }
 
   res.json(payload);

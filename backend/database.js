@@ -160,6 +160,17 @@ db.serialize(() => {
     )
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS heartbeat_disconnect_counters (
+      zona_key TEXT NOT NULL,
+      source TEXT NOT NULL,
+      disconnect_count INTEGER NOT NULL DEFAULT 0,
+      last_disconnected_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (zona_key, source)
+    )
+  `);
+
   db.run(
     `
     DELETE FROM alarmas
@@ -207,6 +218,24 @@ db.serialize(() => {
     CREATE INDEX IF NOT EXISTS idx_alarmas_zona_key
     ON alarmas(zona_key)
   `);
+
+  db.run(`
+    CREATE INDEX IF NOT EXISTS idx_heartbeat_disconnect_counters_zona
+    ON heartbeat_disconnect_counters(zona_key)
+  `);
+
+  ["cuadrada", "falcone"].forEach((zonaKey) => {
+    ["antenna", "telcel", "planta"].forEach((source) => {
+      db.run(
+        `
+        INSERT OR IGNORE INTO heartbeat_disconnect_counters
+          (zona_key, source, disconnect_count)
+        VALUES (?, ?, 0)
+        `,
+        [zonaKey, source]
+      );
+    });
+  });
 
   [
     "planta",
