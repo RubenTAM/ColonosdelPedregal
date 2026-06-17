@@ -116,7 +116,7 @@ const MAP_NODE_POINTS = [
     x: 73.2,
     y: 61.6,
     cloudX: 69.0,
-    cloudY: 57.4,
+    cloudY: 50.4,
   },
   {
     key: "cabo_viejo",
