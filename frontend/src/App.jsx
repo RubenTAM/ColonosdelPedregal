@@ -134,7 +134,7 @@ const MAP_NODE_POINTS = [
     x: 83.2,
     y: 91.1,
     cloudX: 85.4,
-    cloudY: 71.9,
+    cloudY: 70.2,
   },
 ];
 const MAP_NETWORK_ROUTES = [
