@@ -133,8 +133,8 @@ const MAP_NODE_POINTS = [
     channel: "broker",
     x: 83.2,
     y: 91.1,
-    cloudX: 85.4,
-    cloudY: 74.5,
+    cloudX: 84.8,
+    cloudY: 77.5,
   },
 ];
 const MAP_NETWORK_ROUTES = [
