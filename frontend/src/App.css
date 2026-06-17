@@ -425,7 +425,7 @@ button {
 .map-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 1536 / 1005;
+  aspect-ratio: 1502 / 1047;
   min-height: 520px;
   overflow: hidden;
   background: #163047;
@@ -641,7 +641,7 @@ button {
 }
 
 .map-board--visual {
-  width: min(100%, max(720px, calc(152.84vh - 290px)));
+  width: min(100%, max(720px, calc(143.46vh - 260px)));
   margin: 0 auto;
 }
 
@@ -853,40 +853,34 @@ button {
 .network-node {
   position: absolute;
   z-index: 7;
-  width: 34px;
-  height: 34px;
+  min-height: 24px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(11, 26, 42, 0.76);
+  box-shadow: 0 8px 16px rgba(5, 13, 24, 0.26);
+  backdrop-filter: blur(7px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transform: translate(-50%, -50%);
   pointer-events: auto;
+  white-space: nowrap;
 }
 
-.network-node__ring {
-  position: absolute;
-  inset: 4px;
-  border-radius: 50%;
-  border: 3px solid #ff5a66;
-  background: rgba(12, 27, 43, 0.56);
-  box-shadow:
-    0 8px 16px rgba(5, 13, 24, 0.34),
-    0 0 0 4px rgba(255, 90, 102, 0.12);
+.network-node--offline {
+  background: rgba(36, 45, 56, 0.72);
+  border-color: rgba(190, 199, 209, 0.18);
 }
 
 .network-node__status {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 11px;
-  height: 11px;
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  border: 2px solid #eef5fb;
+  border: 1px solid rgba(238, 245, 251, 0.92);
   background: #57df75;
   box-shadow: 0 0 0 5px rgba(87, 223, 117, 0.14);
-}
-
-.network-node--offline .network-node__ring {
-  border-color: #9aa4af;
-  box-shadow:
-    0 8px 16px rgba(5, 13, 24, 0.28),
-    0 0 0 4px rgba(154, 164, 175, 0.12);
 }
 
 .network-node--offline .network-node__status {
@@ -894,7 +888,18 @@ button {
   box-shadow: 0 0 0 5px rgba(154, 164, 175, 0.14);
 }
 
-.network-node__label,
+.network-node__label {
+  color: #f7fbff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+.network-node--offline .network-node__label {
+  color: #c8d0d9;
+}
+
 .map-relay__label {
   position: absolute;
   left: 50%;
@@ -903,7 +908,7 @@ button {
   padding: 3px 7px;
   border-radius: 8px;
   background: rgba(12, 27, 43, 0.68);
-  color: #ffb4ba;
+  color: #d8d0ff;
   font-size: 12px;
   font-weight: 900;
   line-height: 1;
@@ -911,10 +916,6 @@ button {
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
   box-shadow: 0 8px 14px rgba(5, 12, 24, 0.2);
   backdrop-filter: blur(6px);
-}
-
-.network-node--offline .network-node__label {
-  color: #c8d0d9;
 }
 
 .map-relay {
@@ -943,10 +944,6 @@ button {
   box-shadow:
     0 9px 18px rgba(5, 13, 24, 0.28),
     0 0 0 8px rgba(162, 171, 182, 0.13);
-}
-
-.map-relay__label {
-  color: #d8d0ff;
 }
 
 .map-relay--offline .map-relay__label {
@@ -2427,15 +2424,15 @@ button {
     top: -8px;
   }
 
-  .network-node,
   .map-relay {
     width: 26px;
     height: 26px;
   }
 
-  .network-node__ring {
-    inset: 3px;
-    border-width: 2px;
+  .network-node {
+    min-height: 20px;
+    padding: 3px 5px;
+    gap: 4px;
   }
 
   .network-node__status {
@@ -2444,7 +2441,10 @@ button {
     border-width: 1px;
   }
 
-  .network-node__label,
+  .network-node__label {
+    font-size: 9px;
+  }
+
   .map-relay__label {
     top: 25px;
     padding: 3px 5px;
