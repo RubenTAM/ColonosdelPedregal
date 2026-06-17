@@ -1167,6 +1167,52 @@ function construirHeartbeatStatus() {
   }, {});
 }
 
+function construirMapConnectivity() {
+  const now = Date.now();
+  const heartbeatStatus = construirHeartbeatStatus();
+  const getStandaloneOnline = (key) => Boolean(heartbeatStatus[key]?.isOnline);
+  const getChannelOnline = (key, source) =>
+    Boolean(heartbeatStatus[key]?.channels?.[source]?.isOnline);
+
+  return {
+    nodes: {
+      pacifico: { online: getStandaloneOnline("pacifico") },
+      cinco: { online: getStandaloneOnline("cinco") },
+      seis: { online: getStandaloneOnline("seis") },
+      marilu: { online: getStandaloneOnline("marilu") },
+      planta: { online: getStandaloneOnline("planta") },
+      cabo_viejo: { online: getStandaloneOnline("cabo_viejo") },
+      falcone: {
+        online: getStandaloneOnline("falcone"),
+        telcelOnline: getChannelOnline("falcone", REDUNDANT_FALLBACK_SOURCE),
+      },
+      cuadrada: {
+        online: getStandaloneOnline("cuadrada"),
+        telcelOnline: getChannelOnline("cuadrada", REDUNDANT_FALLBACK_SOURCE),
+      },
+    },
+    routes: {
+      antennaFromCv: {
+        online:
+          getStandaloneOnline("cabo_viejo") &&
+          getChannelOnline("falcone", REDUNDANT_PRIMARY_SOURCE) &&
+          getChannelOnline("cuadrada", REDUNDANT_PRIMARY_SOURCE),
+        source: REDUNDANT_PRIMARY_SOURCE,
+        label: REDUNDANT_SOURCE_LABELS[REDUNDANT_PRIMARY_SOURCE],
+      },
+      antennaFromPlanta: {
+        online:
+          getStandaloneOnline("planta") &&
+          getChannelOnline("falcone", REDUNDANT_PLANTA_SOURCE) &&
+          getChannelOnline("cuadrada", REDUNDANT_PLANTA_SOURCE),
+        source: REDUNDANT_PLANTA_SOURCE,
+        label: REDUNDANT_SOURCE_LABELS[REDUNDANT_PLANTA_SOURCE],
+      },
+    },
+    generatedAt: now,
+  };
+}
+
 function ocultarDiagnosticoHeartbeat(status) {
   return Object.keys(status).reduce((acc, key) => {
     const value = status[key];
@@ -1962,6 +2008,7 @@ app.get("/api/niveles", verifyToken, (req, res) => {
     bombasCaboviejo,
     caboViejoComunicacion,
     plantaBotones,
+    mapConnectivity: construirMapConnectivity(),
   };
 
   if (puedeVerDiagnostico) {

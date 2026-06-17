@@ -59,46 +59,119 @@ const REDUNDANT_COMMUNICATION_CHANNELS = [
   { key: "planta", label: "Antena (Desde Planta)" },
 ];
 const MAP_IMAGE_SRC = "/maps/colonos-antenas.png";
-const ANTENNA_POINTS = [
+const EMPTY_MAP_CONNECTIVITY = {
+  nodes: {},
+  routes: {},
+};
+const MAP_NODE_POINTS = [
   {
-    id: "camino-galento",
-    name: "Antena 1",
-    zone: "Camino Galento",
+    key: "seis",
+    label: "Seis",
+    channel: "red",
+    x: 8.4,
+    y: 25.4,
+    cloudX: 7.4,
+    cloudY: 18.8,
+  },
+  {
+    key: "cinco",
+    label: "Cinco",
+    channel: "red",
+    x: 22.4,
+    y: 22.1,
+    cloudX: 21.0,
+    cloudY: 15.4,
+  },
+  {
+    key: "marilu",
+    label: "Marilu",
+    channel: "red",
+    x: 7.4,
+    y: 37.8,
+    cloudX: 5.1,
+    cloudY: 31.8,
+  },
+  {
+    key: "pacifico",
+    label: "Pacifica",
+    channel: "red",
+    x: 40.4,
+    y: 61.1,
+    cloudX: 39.0,
+    cloudY: 67.9,
+  },
+  {
+    key: "falcone",
+    label: "Falcone",
+    channel: "telcel",
     x: 46.4,
-    y: 48.3,
-    detail: "Cobertura poniente del circuito central",
+    y: 50.6,
+    cloudX: 43.6,
+    cloudY: 47.0,
   },
   {
-    id: "camino-del-club",
-    name: "Antena 2",
-    zone: "Camino del Club",
-    x: 52.6,
-    y: 67.8,
-    detail: "Nodo central de enlace",
-  },
-  {
-    id: "camino-del-colegio",
-    name: "Antena 3",
-    zone: "Camino del Colegio",
-    x: 64.7,
-    y: 34.1,
-    detail: "Enlace norte",
-  },
-  {
-    id: "camino-grande",
-    name: "Antena 4",
-    zone: "Camino Grande",
-    x: 72.5,
+    key: "cuadrada",
+    label: "Cuadrada",
+    channel: "telcel",
+    x: 72.4,
     y: 48.0,
-    detail: "Enlace oriente",
+    cloudX: 72.4,
+    cloudY: 55.2,
   },
   {
-    id: "camino-del-mar",
-    name: "Antena 5",
-    zone: "Camino del Cerro / Camino del Mar",
-    x: 84.3,
-    y: 90.5,
-    detail: "Cobertura sur-oriente",
+    key: "cabo_viejo",
+    label: "Caboviejo",
+    channel: "broker",
+    x: 82.7,
+    y: 36.8,
+    cloudX: 80.0,
+    cloudY: 31.0,
+  },
+  {
+    key: "planta",
+    label: "Planta",
+    channel: "broker",
+    x: 81.0,
+    y: 88.4,
+    cloudX: 85.4,
+    cloudY: 86.0,
+  },
+];
+const MAP_RELAY_POINT = {
+  label: "Antena",
+  x: 61.9,
+  y: 43.6,
+};
+const MAP_NETWORK_ROUTES = [
+  {
+    key: "antennaFromCv",
+    label: "Antena desde CV",
+    shortLabel: "Desde CV",
+    className: "map-route--cv",
+    points: [
+      [82.6, 36.9],
+      [72.2, 47.2],
+      [61.6, 42.6],
+      [46.0, 49.5],
+      [80.1, 87.8],
+    ],
+    labelX: 57.0,
+    labelY: 44.2,
+  },
+  {
+    key: "antennaFromPlanta",
+    label: "Antena desde Planta",
+    shortLabel: "Desde Planta",
+    className: "map-route--planta",
+    points: [
+      [83.6, 38.0],
+      [73.0, 49.0],
+      [62.5, 44.8],
+      [47.2, 51.4],
+      [81.5, 89.3],
+    ],
+    labelX: 62.0,
+    labelY: 52.6,
   },
 ];
 
@@ -410,6 +483,9 @@ export default function App() {
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
   const [heartbeatDisconnectCounters, setHeartbeatDisconnectCounters] =
     useState([]);
+  const [mapConnectivity, setMapConnectivity] = useState(
+    EMPTY_MAP_CONNECTIVITY
+  );
   const [alarmas, setAlarmas] = useState([]);
   const [alarmasLoading, setAlarmasLoading] = useState(false);
   const [alarmasFiltro, setAlarmasFiltro] = useState(getFiltroAlarmasHoy);
@@ -1033,6 +1109,7 @@ export default function App() {
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});
+          setMapConnectivity(data.mapConnectivity || EMPTY_MAP_CONNECTIVITY);
           setHeartbeatDisconnectCounters(
             Array.isArray(data.heartbeatDisconnectCounters)
               ? data.heartbeatDisconnectCounters
@@ -1863,7 +1940,11 @@ export default function App() {
 
         {activeView === "mapa" && (
           <section className="content">
-            <ColonosMapView />
+            <ColonosMapView
+              heartbeatNow={heartbeatNow}
+              heartbeatStatus={heartbeatStatus}
+              mapConnectivity={mapConnectivity}
+            />
           </section>
         )}
 
@@ -2198,26 +2279,49 @@ export default function App() {
   );
 }
 
-function ColonosMapView() {
-  const [selectedAntennaId, setSelectedAntennaId] = useState(
-    ANTENNA_POINTS[0]?.id
-  );
-  const selectedAntenna =
-    ANTENNA_POINTS.find((antenna) => antenna.id === selectedAntennaId) ||
-    ANTENNA_POINTS[0];
+function formatMapRoutePoints(points) {
+  return points.map(([x, y]) => `${x},${y}`).join(" ");
+}
+
+function ColonosMapView({
+  mapConnectivity = EMPTY_MAP_CONNECTIVITY,
+  heartbeatStatus = {},
+  heartbeatNow,
+}) {
+  const nodeStatus = mapConnectivity?.nodes || {};
+  const routeStatus = mapConnectivity?.routes || {};
+  const nodeIsOnline = (node) => {
+    const currentStatus = nodeStatus[node.key] || {};
+    const preferredValue =
+      node.channel === "telcel"
+        ? currentStatus.telcelOnline
+        : currentStatus.online;
+
+    if (typeof preferredValue === "boolean") return preferredValue;
+
+    return resolveHeartbeatMeta(
+      heartbeatStatus[node.key],
+      heartbeatNow
+    ).isOnline;
+  };
+  const routeIsOnline = (route) => Boolean(routeStatus[route.key]?.online);
+  const activeNodes = MAP_NODE_POINTS.filter(nodeIsOnline).length;
+  const relayOnline = MAP_NETWORK_ROUTES.some(routeIsOnline);
 
   return (
-    <div className="map-layout">
-      <section className="map-board">
-        <div className="map-board__header">
+    <div className="map-layout map-layout--visual">
+      <section className="map-board map-board--visual">
+        <div className="map-board__header map-board__header--visual">
           <div>
             <h2>Colonos del Pedregal</h2>
-            <span>Los Cabos</span>
+            <span>Redes de antenas y broker MQTT</span>
           </div>
 
           <div className="map-count">
-            <strong>{ANTENNA_POINTS.length}</strong>
-            <span>Antenas</span>
+            <strong>
+              {activeNodes}/{MAP_NODE_POINTS.length}
+            </strong>
+            <span>En linea</span>
           </div>
         </div>
 
@@ -2228,61 +2332,139 @@ function ColonosMapView() {
             alt="Mapa de antenas de Colonos del Pedregal"
           />
 
-          {ANTENNA_POINTS.map((antenna, index) => {
-            const selected = antenna.id === selectedAntenna?.id;
+          <svg
+            className="map-network-layer"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            {MAP_NETWORK_ROUTES.map((route) => {
+              const online = routeIsOnline(route);
+
+              return (
+                <polyline
+                  key={route.key}
+                  points={formatMapRoutePoints(route.points)}
+                  className={`map-route ${route.className} ${
+                    online ? "map-route--online" : "map-route--offline"
+                  }`}
+                />
+              );
+            })}
+          </svg>
+
+          {MAP_NETWORK_ROUTES.map((route) => {
+            const online = routeIsOnline(route);
 
             return (
-              <button
-                type="button"
-                key={antenna.id}
-                className={`antenna-marker ${
-                  selected ? "antenna-marker--selected" : ""
+              <div
+                key={`${route.key}-label`}
+                className={`map-route-badge ${route.className} ${
+                  online ? "map-route-badge--online" : "map-route-badge--offline"
                 }`}
-                style={{ left: `${antenna.x}%`, top: `${antenna.y}%` }}
-                onClick={() => setSelectedAntennaId(antenna.id)}
-                aria-label={antenna.name}
-                aria-pressed={selected}
-                title={`${antenna.name} - ${antenna.zone}`}
+                style={{ left: `${route.labelX}%`, top: `${route.labelY}%` }}
+                title={route.label}
               >
-                <span className="antenna-marker__pulse" />
-                <span className="antenna-marker__pin">{index + 1}</span>
-              </button>
+                <span />
+                {route.shortLabel}
+              </div>
             );
           })}
-        </div>
-      </section>
 
-      <aside className="map-panel">
-        <div className="map-panel__selected">
-          <span className="map-panel__eyebrow">Seleccionada</span>
-          <h3>{selectedAntenna.name}</h3>
-          <p>{selectedAntenna.zone}</p>
-          <div className="map-panel__detail">{selectedAntenna.detail}</div>
-          <div className="map-status map-status--active">
-            <span />
-            Activa
+          <div
+            className={`map-relay ${relayOnline ? "map-relay--online" : "map-relay--offline"}`}
+            style={{
+              left: `${MAP_RELAY_POINT.x}%`,
+              top: `${MAP_RELAY_POINT.y}%`,
+            }}
+            title={MAP_RELAY_POINT.label}
+          >
+            <span className="map-relay__dot" />
+            <span className="map-relay__label">{MAP_RELAY_POINT.label}</span>
+          </div>
+
+          {MAP_NODE_POINTS.map((node) => {
+            const online = nodeIsOnline(node);
+
+            return (
+              <MapSignal
+                key={`${node.key}-signal`}
+                node={node}
+                online={online}
+              />
+            );
+          })}
+
+          {MAP_NODE_POINTS.map((node) => {
+            const online = nodeIsOnline(node);
+
+            return (
+              <MapNetworkNode
+                key={node.key}
+                node={node}
+                online={online}
+              />
+            );
+          })}
+
+          <div className="map-legend" aria-label="Estado de redes">
+            <div className="map-legend__item">
+              <span className="map-legend__line map-legend__line--cv" />
+              Desde CV
+            </div>
+            <div className="map-legend__item">
+              <span className="map-legend__line map-legend__line--planta" />
+              Desde Planta
+            </div>
+            <div className="map-legend__item">
+              <span className="map-legend__wave" />
+              Ondas activas
+            </div>
+            <div className="map-legend__item map-legend__item--muted">
+              <span className="map-legend__line map-legend__line--off" />
+              Sin conexion
+            </div>
           </div>
         </div>
+      </section>
+    </div>
+  );
+}
 
-        <div className="map-panel__list">
-          {ANTENNA_POINTS.map((antenna, index) => (
-            <button
-              type="button"
-              key={antenna.id}
-              className={`map-panel__item ${
-                antenna.id === selectedAntenna?.id
-                  ? "map-panel__item--active"
-                  : ""
-              }`}
-              onClick={() => setSelectedAntennaId(antenna.id)}
-            >
-              <span>{index + 1}</span>
-              <strong>{antenna.name}</strong>
-              <small>{antenna.zone}</small>
-            </button>
-          ))}
-        </div>
-      </aside>
+function MapSignal({ node, online }) {
+  return (
+    <div
+      className={`map-signal map-signal--${node.channel} ${
+        online ? "map-signal--online" : "map-signal--offline"
+      }`}
+      style={{ left: `${node.cloudX}%`, top: `${node.cloudY}%` }}
+      title={`${node.label}: ${online ? "en linea" : "sin conexion"}`}
+      aria-hidden="true"
+    >
+      <div className="map-signal__waves">
+        <span className="map-signal__wave map-signal__wave--sm" />
+        <span className="map-signal__wave map-signal__wave--md" />
+        <span className="map-signal__wave map-signal__wave--lg" />
+      </div>
+      <div className="map-cloud">
+        <span />
+      </div>
+    </div>
+  );
+}
+
+function MapNetworkNode({ node, online }) {
+  return (
+    <div
+      className={`network-node network-node--${node.channel} ${
+        online ? "network-node--online" : "network-node--offline"
+      }`}
+      style={{ left: `${node.x}%`, top: `${node.y}%` }}
+      title={`${node.label}: ${online ? "en linea" : "sin conexion"}`}
+    >
+      <span className="network-node__ring" />
+      <span className="network-node__status" />
+      <span className="network-node__label">{node.label}</span>
     </div>
   );
 }
