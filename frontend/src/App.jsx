@@ -114,7 +114,7 @@ const MAP_NODE_POINTS = [
     label: "Cuadrada",
     channel: "telcel",
     x: 73.2,
-    y: 59.5,
+    y: 58.9,
     // 61.6
     cloudX: 69.0,
     cloudY: 46.7,
