@@ -115,8 +115,8 @@ const MAP_NODE_POINTS = [
     channel: "telcel",
     x: 73.2,
     y: 61.6,
-    cloudX: 69.7,
-    cloudY: 52.4,
+    cloudX: 69.0,
+    cloudY: 57.4,
   },
   {
     key: "cabo_viejo",
