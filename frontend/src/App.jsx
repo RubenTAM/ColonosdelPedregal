@@ -115,7 +115,7 @@ const MAP_NODE_POINTS = [
     channel: "telcel",
     x: 73.2,
     y: 57.6,
-    cloudX: 68.9,
+    cloudX: 69.7,
     cloudY: 52.4,
   },
   {
@@ -134,7 +134,7 @@ const MAP_NODE_POINTS = [
     x: 83.2,
     y: 91.1,
     cloudX: 85.4,
-    cloudY: 73.3,
+    cloudY: 71.9,
   },
 ];
 const MAP_NETWORK_ROUTES = [
