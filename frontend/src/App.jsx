@@ -97,7 +97,7 @@ const MAP_NODE_POINTS = [
     channel: "red",
     x: 39.3,
     y: 70.0,
-    cloudX: 35.7,
+    cloudX: 35.0,
     cloudY: 62.4,
   },
   {
@@ -116,7 +116,7 @@ const MAP_NODE_POINTS = [
     x: 73.2,
     y: 57.6,
     cloudX: 68.9,
-    cloudY: 51.7,
+    cloudY: 52.4,
   },
   {
     key: "cabo_viejo",
@@ -133,8 +133,8 @@ const MAP_NODE_POINTS = [
     channel: "broker",
     x: 83.2,
     y: 91.1,
-    cloudX: 84.0,
-    cloudY: 76.3,
+    cloudX: 85.4,
+    cloudY: 73.3,
   },
 ];
 const MAP_NETWORK_ROUTES = [
