@@ -900,56 +900,6 @@ button {
   color: #c8d0d9;
 }
 
-.map-relay__label {
-  position: absolute;
-  left: 50%;
-  top: 32px;
-  transform: translateX(-50%);
-  padding: 3px 7px;
-  border-radius: 8px;
-  background: rgba(12, 27, 43, 0.68);
-  color: #d8d0ff;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
-  white-space: nowrap;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
-  box-shadow: 0 8px 14px rgba(5, 12, 24, 0.2);
-  backdrop-filter: blur(6px);
-}
-
-.map-relay {
-  position: absolute;
-  z-index: 7;
-  width: 30px;
-  height: 30px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-.map-relay__dot {
-  position: absolute;
-  inset: 5px;
-  border-radius: 8px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  background: linear-gradient(180deg, #7f63ff 0%, #4a3fc6 100%);
-  box-shadow:
-    0 9px 18px rgba(5, 13, 24, 0.34),
-    0 0 0 8px rgba(127, 99, 255, 0.16);
-  transform: rotate(45deg);
-}
-
-.map-relay--offline .map-relay__dot {
-  background: linear-gradient(180deg, #a2abb6 0%, #7e8894 100%);
-  box-shadow:
-    0 9px 18px rgba(5, 13, 24, 0.28),
-    0 0 0 8px rgba(162, 171, 182, 0.13);
-}
-
-.map-relay--offline .map-relay__label {
-  color: #d5dbe2;
-}
-
 .map-legend {
   position: absolute;
   left: 16px;
@@ -2323,7 +2273,6 @@ button {
   }
 
   .network-node__label,
-  .map-relay__label,
   .map-route-badge {
     font-size: 10px;
   }
@@ -2424,11 +2373,6 @@ button {
     top: -8px;
   }
 
-  .map-relay {
-    width: 26px;
-    height: 26px;
-  }
-
   .network-node {
     min-height: 20px;
     padding: 3px 5px;
@@ -2442,12 +2386,6 @@ button {
   }
 
   .network-node__label {
-    font-size: 9px;
-  }
-
-  .map-relay__label {
-    top: 25px;
-    padding: 3px 5px;
     font-size: 9px;
   }
 

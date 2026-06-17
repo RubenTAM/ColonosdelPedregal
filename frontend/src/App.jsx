@@ -58,7 +58,7 @@ const REDUNDANT_COMMUNICATION_CHANNELS = [
   { key: "telcel", label: "Telcel" },
   { key: "planta", label: "Antena (Desde Planta)" },
 ];
-const MAP_IMAGE_SRC = "/maps/colonos-antenas.png";
+const MAP_IMAGE_SRC = "/maps/colonos-antenas-rojas.png";
 const EMPTY_MAP_CONNECTIVITY = {
   nodes: {},
   routes: {},
@@ -137,11 +137,6 @@ const MAP_NODE_POINTS = [
     cloudY: 83.8,
   },
 ];
-const MAP_RELAY_POINT = {
-  label: "Antena",
-  x: 59.7,
-  y: 49.8,
-};
 const MAP_NETWORK_ROUTES = [
   {
     key: "antennaFromCv",
@@ -2310,7 +2305,6 @@ function ColonosMapView({
   };
   const routeIsOnline = (route) => Boolean(routeStatus[route.key]?.online);
   const activeNodes = MAP_NODE_POINTS.filter(nodeIsOnline).length;
-  const relayOnline = MAP_NETWORK_ROUTES.some(routeIsOnline);
 
   return (
     <div className="map-layout map-layout--visual">
@@ -2374,18 +2368,6 @@ function ColonosMapView({
               </div>
             );
           })}
-
-          <div
-            className={`map-relay ${relayOnline ? "map-relay--online" : "map-relay--offline"}`}
-            style={{
-              left: `${MAP_RELAY_POINT.x}%`,
-              top: `${MAP_RELAY_POINT.y}%`,
-            }}
-            title={MAP_RELAY_POINT.label}
-          >
-            <span className="map-relay__dot" />
-            <span className="map-relay__label">{MAP_RELAY_POINT.label}</span>
-          </div>
 
           {MAP_NODE_POINTS.map((node) => {
             const online = nodeIsOnline(node);
