@@ -97,7 +97,7 @@ const MAP_NODE_POINTS = [
     channel: "red",
     x: 39.3,
     y: 70.0,
-    cloudX: 32.0,
+    cloudX: 33.7,
     cloudY: 62.4,
   },
   {
@@ -106,7 +106,7 @@ const MAP_NODE_POINTS = [
     channel: "telcel",
     x: 43.8,
     y: 47.7,
-    cloudX: 36.5,
+    cloudX: 39.5,
     cloudY: 40.1,
   },
   {
@@ -115,8 +115,8 @@ const MAP_NODE_POINTS = [
     channel: "telcel",
     x: 73.2,
     y: 57.6,
-    cloudX: 63.9,
-    cloudY: 50.0,
+    cloudX: 68.9,
+    cloudY: 52.0,
   },
   {
     key: "cabo_viejo",
@@ -133,7 +133,7 @@ const MAP_NODE_POINTS = [
     channel: "broker",
     x: 83.2,
     y: 91.1,
-    cloudX: 95.0,
+    cloudX: 89.0,
     cloudY: 77.8,
   },
 ];
