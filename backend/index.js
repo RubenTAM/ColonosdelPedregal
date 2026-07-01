@@ -97,6 +97,17 @@ function obtenerHeartbeatRedundanteTimeoutMs(key) {
     : obtenerHeartbeatTimeoutMs(key);
 }
 
+function heartbeatValueChanged(previousValue, nextValue) {
+  const previousNumber = Number(previousValue);
+  const nextNumber = Number(nextValue);
+
+  if (Number.isFinite(previousNumber) && Number.isFinite(nextNumber)) {
+    return previousNumber !== nextNumber;
+  }
+
+  return String(previousValue) !== String(nextValue);
+}
+
 /* ESTADO EN MEMORIA */
 let niveles = {
   planta: 0,
@@ -743,7 +754,7 @@ function registrarCambioHeartbeat(key, value) {
 
   if (
     !heartbeatState[key].hasValue ||
-    Number(heartbeatState[key].lastValue) !== Number(value)
+    heartbeatValueChanged(heartbeatState[key].lastValue, value)
   ) {
     heartbeatState[key].lastValue = value;
     heartbeatState[key].lastChangedAt = Date.now();
@@ -762,7 +773,7 @@ function registrarCambioHeartbeatRedundante(key, source, value) {
 
   const state = redundantHeartbeatState[key][source];
 
-  if (!state.hasValue || Number(state.lastValue) !== Number(value)) {
+  if (!state.hasValue || heartbeatValueChanged(state.lastValue, value)) {
     state.lastValue = value;
     state.lastChangedAt = Date.now();
     state.hasValue = true;
