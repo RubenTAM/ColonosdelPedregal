@@ -55,8 +55,8 @@ const COMMUNICATION_CHANNELS = [
 ];
 const REDUNDANT_COMMUNICATION_CHANNELS = [
   { key: "antenna", label: "Antena (Desde CV)" },
-  { key: "telcel", label: "Telcel" },
   { key: "planta", label: "Antena (Desde Planta)" },
+  { key: "telcel", label: "Telcel" },
 ];
 const MAP_IMAGE_SRC = "/maps/colonos-antenas-rojas.png";
 const EMPTY_MAP_CONNECTIVITY = {
