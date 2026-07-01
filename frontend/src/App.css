@@ -1343,6 +1343,32 @@ button {
   font-weight: 800;
 }
 
+.cabo-pump-sections {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.cabo-pump-card {
+  border: 1px solid #dce4ef;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef3f8 100%);
+  padding: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.cabo-pump-card h3 {
+  margin: 0 0 9px;
+  color: #203866;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.cabo-pump-card .pump-grid {
+  margin-bottom: 0;
+}
 /* PUMP BOXES */
 
 .pump-grid {
@@ -1557,7 +1583,8 @@ button {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.28);
 }
 
-.channel-indicator--active .channel-indicator__dot {
+.channel-indicator--active .channel-indicator__dot,
+.channel-indicator--online .channel-indicator__dot {
   background: var(--green);
   box-shadow:
     0 0 0 5px rgba(78, 164, 90, 0.13),
@@ -1567,6 +1594,19 @@ button {
 .channel-indicator--expired .channel-indicator__dot {
   background: #2b2f36;
   opacity: 0.82;
+}
+.channel-indicator--in-use {
+  background: #334d81;
+  border-color: #334d81;
+  color: #ffffff;
+  box-shadow:
+    0 8px 16px rgba(51, 77, 129, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.channel-indicator--in-use .channel-indicator__label,
+.channel-indicator--in-use .channel-indicator__timer {
+  color: #ffffff;
 }
 
 .channel-indicator__label,

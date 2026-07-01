@@ -763,7 +763,7 @@ function registrarCambioHeartbeatRedundante(key, source, value) {
 
 function heartbeatRedundanteEstaOnline(key, source) {
   const state = redundantHeartbeatState[key]?.[source];
-  if (!state) return false;
+  if (!state?.hasValue) return false;
 
   const lastChangedAt = Number(state.lastChangedAt);
   const elapsedMs = Math.max(
@@ -1072,10 +1072,11 @@ function construirHeartbeatDetalle(
     currentValue,
     lastValue: state?.lastValue ?? null,
     lastChangedAt: state?.lastChangedAt ?? 0,
+    hasValue: Boolean(state?.hasValue),
     elapsedMs,
     remainingMs,
     timeoutMs,
-    isOnline: elapsedMs < timeoutMs,
+    isOnline: Boolean(state?.hasValue) && elapsedMs < timeoutMs,
   };
 }
 

@@ -257,16 +257,23 @@ function resolveHeartbeatMeta(heartbeat, now = Date.now()) {
       ? Math.max(0, now - lastChangedAt)
       : Math.max(0, Number(heartbeat.elapsedMs) || 0);
   const remainingMs = Math.max(0, timeoutMs - elapsedMs);
-  const isOnline = timeoutMs === 0 || elapsedMs < timeoutMs;
+  const hasValue =
+    heartbeat.hasValue === undefined ? true : Boolean(heartbeat.hasValue);
+  const backendOnline =
+    heartbeat.isOnline === undefined ? true : Boolean(heartbeat.isOnline);
+  const isOnline =
+    hasValue && backendOnline && (timeoutMs === 0 || elapsedMs < timeoutMs);
 
   return {
     isOnline,
     elapsedMs,
     remainingMs,
     timeoutMs,
-    label: isOnline
-      ? `Tiempo restante: ${formatHeartbeatDuration(remainingMs)}`
-      : `Sin cambio desde hace ${formatHeartbeatDuration(elapsedMs)}`,
+    label: !hasValue
+      ? "Sin lectura de bit de vida"
+      : isOnline
+        ? `Tiempo restante: ${formatHeartbeatDuration(remainingMs)}`
+        : `Sin cambio desde hace ${formatHeartbeatDuration(elapsedMs)}`,
   };
 }
 
@@ -1706,7 +1713,6 @@ export default function App() {
                 communicationSource={caboViejoComunicacion}
                 bypassFalconeActive={Number(plantaBotones?.bypassFalcone) === 1}
                 bypassCuadradaActive={Number(plantaBotones?.bypassCuadrada) === 1}
-                pumpsUnavailable
                 onOpenConfig={() => openConfigModal("cabo_viejo")}
                 onOpenGraph={() => openGraphModal("cabo_viejo")}
                 onRequestMode={(pumpName, mode) =>
@@ -2700,7 +2706,6 @@ function CaboViejoCard({
   communicationSource,
   bypassFalconeActive = false,
   bypassCuadradaActive = false,
-  pumpsUnavailable = false,
   onOpenConfig,
   onOpenGraph,
   onRequestMode,
@@ -2741,35 +2746,46 @@ function CaboViejoCard({
         </div>
       )}
 
-      <div className="pump-grid pump-grid--cabo">
-        <PumpBox
-          name="P70A"
-          runtime={p70a}
-          modes={bombasCaboviejo.p70a}
-          onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
-        />
-        <PumpBox
-          name="P70B"
-          runtime={p70b}
-          modes={bombasCaboviejo.p70b}
-          onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
-        />
-        <PumpBox
-          name="P71A"
-          runtime={p71a}
-          modes={bombasCaboviejo.p71a}
-          onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
-        />
-        <PumpBox
-          name="P71B"
-          runtime={p71b}
-          modes={bombasCaboviejo.p71b}
-          onRequestMode={onRequestMode}
-          canRequestMode={canRequestMode && !communicationOffline}
-        />
+      <div className="cabo-pump-sections">
+        <section className="cabo-pump-card">
+          <h3>Cuadrada</h3>
+          <div className="pump-grid pump-grid--2">
+            <PumpBox
+              name="P70A"
+              runtime={p70a}
+              modes={bombasCaboviejo.p70a}
+              onRequestMode={onRequestMode}
+              canRequestMode={canRequestMode && !communicationOffline}
+            />
+            <PumpBox
+              name="P70B"
+              runtime={p70b}
+              modes={bombasCaboviejo.p70b}
+              onRequestMode={onRequestMode}
+              canRequestMode={canRequestMode && !communicationOffline}
+            />
+          </div>
+        </section>
+
+        <section className="cabo-pump-card">
+          <h3>Falcone</h3>
+          <div className="pump-grid pump-grid--2">
+            <PumpBox
+              name="P71A"
+              runtime={p71a}
+              modes={bombasCaboviejo.p71a}
+              onRequestMode={onRequestMode}
+              canRequestMode={canRequestMode && !communicationOffline}
+            />
+            <PumpBox
+              name="P71B"
+              runtime={p71b}
+              modes={bombasCaboviejo.p71b}
+              onRequestMode={onRequestMode}
+              canRequestMode={canRequestMode && !communicationOffline}
+            />
+          </div>
+        </section>
       </div>
 
       <div className="footer-pills footer-pills--cabo-status">
@@ -2831,8 +2847,8 @@ function FalconeCard({
       <TankGauge level={level} rawLevel={rawLevel} />
 
       <div className="pump-grid pump-grid--2">
-        <PumpBox name="P80A" runtime={0} state="ALARMADO" active="OFF" alert />
-        <PumpBox name="P80B" runtime={0} state="ALARMADO" active="OFF" alert />
+        <PumpBox name="P80A" runtime={0} modes={{ off: 1 }} alert />
+        <PumpBox name="P80B" runtime={0} modes={{ off: 1 }} alert />
       </div>
 
       <div className="footer-pills footer-pills--stacked">
@@ -2990,14 +3006,15 @@ function ChannelIndicators({ heartbeat, heartbeatNow, compact = false }) {
       {REDUNDANT_COMMUNICATION_CHANNELS.map((channel) => {
         const channelHeartbeat = heartbeat.channels[channel.key];
         const meta = resolveHeartbeatMeta(channelHeartbeat, heartbeatNow);
-        const isActive = heartbeat.source === channel.key && meta.isOnline;
+        const isOnline = meta.isOnline;
+        const isInUse = heartbeat.source === channel.key && isOnline;
         const title = `${channel.label}: ${meta.label}`;
 
         return (
           <div
             className={`channel-indicator ${
-              isActive ? "channel-indicator--active" : ""
-            } ${meta.isOnline ? "" : "channel-indicator--expired"}`}
+              isOnline ? "channel-indicator--online" : "channel-indicator--expired"
+            } ${isInUse ? "channel-indicator--in-use" : ""}`}
             title={title}
             aria-label={title}
             key={channel.key}
@@ -3005,7 +3022,7 @@ function ChannelIndicators({ heartbeat, heartbeatNow, compact = false }) {
             <span className="channel-indicator__dot" />
             <span className="channel-indicator__label">{channel.label}</span>
             <span className="channel-indicator__timer">
-              {meta.isOnline ? formatHeartbeatDuration(meta.remainingMs) : "0m 00s"}
+              {isOnline ? formatHeartbeatDuration(meta.remainingMs) : "0m 00s"}
             </span>
           </div>
         );
