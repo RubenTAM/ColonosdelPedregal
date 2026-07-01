@@ -52,8 +52,6 @@ const DEFAULT_LEVEL_CONFIG = {
 };
 
 const HEARTBEAT_DEFAULT_TIMEOUT_MS = 20 * 60 * 1000;
-const HEARTBEAT_REDUNDANT_TIMEOUT_MS = 5 * 60 * 1000;
-const HEARTBEAT_REDUNDANT_TIMEOUT_KEYS = new Set(["falcone", "cuadrada"]);
 const HEARTBEAT_EXTENDED_TIMEOUT_MS = 60 * 60 * 1000;
 const HEARTBEAT_EXTENDED_TIMEOUT_KEYS = new Set([
   "cinco",
@@ -89,23 +87,6 @@ function obtenerHeartbeatTimeoutMs(key) {
   return HEARTBEAT_EXTENDED_TIMEOUT_KEYS.has(key)
     ? HEARTBEAT_EXTENDED_TIMEOUT_MS
     : HEARTBEAT_DEFAULT_TIMEOUT_MS;
-}
-
-function obtenerHeartbeatRedundanteTimeoutMs(key) {
-  return HEARTBEAT_REDUNDANT_TIMEOUT_KEYS.has(key)
-    ? HEARTBEAT_REDUNDANT_TIMEOUT_MS
-    : obtenerHeartbeatTimeoutMs(key);
-}
-
-function heartbeatValueChanged(previousValue, nextValue) {
-  const previousNumber = Number(previousValue);
-  const nextNumber = Number(nextValue);
-
-  if (Number.isFinite(previousNumber) && Number.isFinite(nextNumber)) {
-    return previousNumber !== nextNumber;
-  }
-
-  return String(previousValue) !== String(nextValue);
 }
 
 /* ESTADO EN MEMORIA */
@@ -754,7 +735,7 @@ function registrarCambioHeartbeat(key, value) {
 
   if (
     !heartbeatState[key].hasValue ||
-    heartbeatValueChanged(heartbeatState[key].lastValue, value)
+    Number(heartbeatState[key].lastValue) !== Number(value)
   ) {
     heartbeatState[key].lastValue = value;
     heartbeatState[key].lastChangedAt = Date.now();
@@ -773,7 +754,7 @@ function registrarCambioHeartbeatRedundante(key, source, value) {
 
   const state = redundantHeartbeatState[key][source];
 
-  if (!state.hasValue || heartbeatValueChanged(state.lastValue, value)) {
+  if (!state.hasValue || Number(state.lastValue) !== Number(value)) {
     state.lastValue = value;
     state.lastChangedAt = Date.now();
     state.hasValue = true;
@@ -789,7 +770,7 @@ function heartbeatRedundanteEstaOnline(key, source) {
     0,
     Date.now() - (Number.isFinite(lastChangedAt) ? lastChangedAt : Date.now())
   );
-  return elapsedMs < obtenerHeartbeatRedundanteTimeoutMs(key);
+  return elapsedMs < obtenerHeartbeatTimeoutMs(key);
 }
 
 function construirContadoresDesconexionHeartbeat() {
@@ -879,7 +860,7 @@ function revisarHeartbeatsRedundantes(now) {
         state,
         state.lastValue,
         now,
-        obtenerHeartbeatRedundanteTimeoutMs(key)
+        obtenerHeartbeatTimeoutMs(key)
       ).isOnline;
       const wasOnline = redundantHeartbeatOnlineState[key]?.[source] !== false;
 
@@ -1106,7 +1087,7 @@ function construirComunicacionRedundante(key, now) {
       state,
       state.hasValue ? state.lastValue : null,
       now,
-      obtenerHeartbeatRedundanteTimeoutMs(key)
+      obtenerHeartbeatTimeoutMs(key)
     );
     return acc;
   }, {});
