@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_LEVEL_CONFIG = {
@@ -488,6 +488,7 @@ export default function App() {
   });
   const [heartbeatStatus, setHeartbeatStatus] = useState({});
   const [heartbeatNow, setHeartbeatNow] = useState(() => Date.now());
+  const heartbeatServerOffsetRef = useRef(0);
   const [heartbeatDisconnectCounters, setHeartbeatDisconnectCounters] =
     useState([]);
   const [mapConnectivity, setMapConnectivity] = useState(
@@ -1065,7 +1066,7 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setHeartbeatNow(Date.now());
+      setHeartbeatNow(Date.now() + heartbeatServerOffsetRef.current);
     }, 1000);
 
     return () => clearInterval(interval);
@@ -1113,6 +1114,15 @@ export default function App() {
       apiFetch("/api/niveles")
         .then((res) => res.json())
         .then((data) => {
+          const serverNow = Number(
+            data.generatedAt || data.mapConnectivity?.generatedAt
+          );
+
+          if (Number.isFinite(serverNow) && serverNow > 0) {
+            heartbeatServerOffsetRef.current = serverNow - Date.now();
+            setHeartbeatNow(serverNow);
+          }
+
           setNiveles(data.niveles || {});
           setPlcStatus(data.plcStatus || {});
           setHeartbeatStatus(data.heartbeatStatus || {});

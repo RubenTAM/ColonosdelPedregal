@@ -1993,6 +1993,7 @@ app.get("/api/niveles", verifyToken, (req, res) => {
   const puedeVerDiagnostico = puedeVerDiagnosticoHeartbeat(req.user);
 
   const payload = {
+    generatedAt: Date.now(),
     niveles,
     plcStatus,
     heartbeatStatus: puedeVerDiagnostico
